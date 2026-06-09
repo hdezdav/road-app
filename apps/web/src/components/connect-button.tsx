@@ -1,4 +1,3 @@
-{{! This is a custom connect button for the Minipay template }}
 "use client";
 
 import { ConnectButton as RainbowKitConnectButton } from "@rainbow-me/rainbowkit";

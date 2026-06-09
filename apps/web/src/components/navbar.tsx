@@ -1,28 +1,35 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import Image from "next/image"
-import { usePathname } from "next/navigation"
-import { Menu, ExternalLink } from "lucide-react"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Menu, ExternalLink, Swords, Gift, Trophy } from "lucide-react";
+import { useAccount } from "wagmi";
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
   SheetTrigger,
-} from "@/components/ui/sheet"
-{{#if (or (eq walletProvider "rainbowkit") (eq walletProvider "thirdweb"))}}
-import { ConnectButton } from "@/components/connect-button"
-
-
-const navLinks = [
-  { name: "Home", href: "/" },
-  { name: "Docs", href: "https://docs.celo.org", external: true },
-]
+} from "@/components/ui/sheet";
+import { ConnectButton as WalletConnectButton } from "@/components/connect-button";
+import { useInventory } from "@/context/InventoryContext";
 
 export function Navbar() {
-  const pathname = usePathname()
+  const pathname = usePathname();
+  const { isConnected } = useAccount();
+  const { hasOpenedPack } = useInventory();
   
+  const navLinks = [
+    { name: "Inicio", href: "/" },
+    ...(isConnected
+      ? [
+          { name: "Colección", href: "/cards", icon: Gift },
+          { name: "Combate", href: "/battle", icon: Swords }
+        ]
+      : []),
+    { name: "Celo Docs", href: "https://docs.celo.org", external: true },
+  ];
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 max-w-screen-2xl items-center justify-between px-4">
@@ -37,9 +44,9 @@ export function Navbar() {
             </SheetTrigger>
             <SheetContent side="left" className="w-80">
               <div className="flex items-center gap-2 mb-8">
-
-                <span className="font-bold text-lg">
-                  road-app
+                <Trophy className="h-6 w-6 text-indigo-600" />
+                <span className="font-bold text-lg text-slate-800">
+                  Road App
                 </span>
               </div>
               <nav className="flex flex-col gap-4">
@@ -53,22 +60,13 @@ export function Navbar() {
                       pathname === link.href ? "text-foreground" : "text-foreground/70"
                     }`}
                   >
+                    {link.icon && <link.icon className="h-4 w-4" />}
                     {link.name}
                     {link.external && <ExternalLink className="h-4 w-4" />}
                   </Link>
                 ))}
                 <div className="mt-6 pt-6 border-t">
-                  {{#if (or (eq walletProvider "rainbowkit") (eq walletProvider "thirdweb"))}}
-                    {{#if (eq templateType 'minipay')}}
-                  <Button asChild className="w-full">
-                    <WalletConnectButton />
-                  </Button>
-                    {{else}}
                   <WalletConnectButton />
-                    
-                  {{else}}
-                  <Button className="w-full">Connect Wallet</Button>
-                  
                 </div>
               </nav>
             </SheetContent>
@@ -76,9 +74,9 @@ export function Navbar() {
 
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-
-            <span className="hidden font-bold text-xl sm:inline-block">
-              road-app
+            <Trophy className="h-6 w-6 text-indigo-600" />
+            <span className="hidden font-bold text-xl sm:inline-block text-slate-800">
+              Road App
             </span>
           </Link>
         </div>
@@ -97,20 +95,17 @@ export function Navbar() {
                   : "text-foreground/70"
               }`}
             >
+              {link.icon && <link.icon className="h-4 w-4" />}
               {link.name}
-              {link.external && <ExternalLink className="h-4 w-4" />}
+              {link.external && <ExternalLink className="h-3 w-3" />}
             </Link>
           ))}
           
           <div className="flex items-center gap-3">
-            {{#if (or (eq walletProvider "rainbowkit") (eq walletProvider "thirdweb"))}}
             <WalletConnectButton />
-            {{else}}
-            <Button variant="outline" size="sm">Connect Wallet</Button>
-            
           </div>
         </nav>
       </div>
     </header>
-  )
+  );
 }

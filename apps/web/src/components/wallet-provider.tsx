@@ -1,5 +1,3 @@
-{{! This is a shared wallet provider component for Minipay integration }}
-{{! It handles auto-connection when inside the Minipay environment }}
 "use client";
 
 import { RainbowKitProvider, connectorsForWallets } from "@rainbow-me/rainbowkit";
@@ -9,7 +7,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { WagmiProvider, createConfig, http, useConnect } from "wagmi";
 import { celo, celoSepolia } from "wagmi/chains";
-import { ConnectButton } from "./connect-button";
 
 const connectors = connectorsForWallets(
   [
@@ -20,7 +17,7 @@ const connectors = connectorsForWallets(
   ],
   {
     appName: "road-app",
-    projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID!,
+    projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID || "placeholder-project-id",
   }
 );
 

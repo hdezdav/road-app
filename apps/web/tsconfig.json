@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "plugins": [{ "name": "next" }],{{#if (eq templateType "farcaster-miniapp")}}
+    "plugins": [{ "name": "next" }],
     "moduleResolution": "bundler",
     "baseUrl": ".",
     "paths": {
