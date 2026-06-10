@@ -88,6 +88,28 @@ This is a monorepo managed by Turborepo:
 - `pnpm contracts:deploy:celo-sepolia` — Deploy to Celo Sepolia Testnet (chainId `11142220`)
 - `pnpm contracts:deploy:celo` — Deploy to Celo Mainnet (chainId `42220`)
 
+### Cloudflare Workers (frontend deployment)
+
+The web app is deployed to **Cloudflare Workers** via [`@opennextjs/cloudflare`](https://opennext.js.org/cloudflare).
+Because this is a Turborepo monorepo, Cloudflare's auto-detection cannot find the project
+from the root by itself. The root `package.json` exposes proxy scripts that forward to
+`apps/web`, so the standard Cloudflare build settings work out of the box:
+
+| Setting | Value |
+|---|---|
+| **Root directory** | `/` (repo root) |
+| **Build command** | `pnpm run build:cloudflare` |
+| **Deploy command** | `pnpm run deploy` |
+| **Install command** | `pnpm install --frozen-lockfile` |
+
+Locally you can run:
+
+```bash
+pnpm build:cloudflare   # builds apps/web with OpenNext
+pnpm preview            # wrangler dev (local Worker preview)
+pnpm deploy             # publishes to Cloudflare Workers
+```
+
 ---
 
 ## 🧱 Tech Stack

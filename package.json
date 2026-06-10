@@ -4,7 +4,10 @@
   "description": "a BlockChain Education Project para MiniPay",
   "private": true,
   "scripts": {
-    "build": "turbo build",
+    "build": "turbo build --filter=web",
+    "build:cloudflare": "pnpm --filter web run build:cloudflare",
+    "deploy": "pnpm --filter web run deploy",
+    "preview": "pnpm --filter web run preview",
     "dev": "turbo dev",
     "lint": "turbo lint",
     "clean": "turbo clean",
