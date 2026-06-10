@@ -1,12 +1,19 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 
 import { Navbar } from '@/components/navbar';
 import { WalletProvider } from "@/components/wallet-provider";
 import { InventoryProvider } from "@/context/InventoryContext";
 
-const inter = Inter({ subsets: ['latin'] });
+/**
+ * NOTE: We intentionally do NOT use `next/font/google` (Inter) here.
+ *
+ * OpenNext on Cloudflare Workers cannot reliably fetch Google Fonts during
+ * SSR — the missing font subset turns into a 500 "Internal Server Error" on
+ * the very first request. Loading the stylesheet via <link> in <head> is the
+ * recommended workaround and gives the exact same visual result (Inter falls
+ * back gracefully to the system sans-serif while the woff2 streams in).
+ */
 
 export const metadata: Metadata = {
   title: 'Road App — Aprende Web3 jugando',
@@ -19,14 +26,13 @@ export const metadata: Metadata = {
     title: 'Road App',
     statusBarStyle: 'default',
   },
-  icons: {
-    icon: '/favicon.ico',
-    apple: '/icon-192.png',
-  },
+  // Icons are auto-detected by Next.js from `app/icon.svg` and
+  // `app/apple-icon.svg` — no need to list them here.
   formatDetection: {
     telephone: false,
   },
 };
+
 
 /**
  * Celopedia / MiniPay requirements:
@@ -55,8 +61,25 @@ export default function RootLayout({
   // que React hidrate. Es la recomendación oficial de Next.js para este caso.
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
+      <head>
+        {/*
+          Preconnect + Inter stylesheet served by Google Fonts CDN. This is the
+          Cloudflare-Workers-safe replacement for `next/font/google`.
+        */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        />
+      </head>
+      <body
+        className="font-sans"
+        style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}
+        suppressHydrationWarning
+      >
         <div className="relative flex min-h-screen flex-col">
+
           <WalletProvider>
             <InventoryProvider>
               <Navbar />

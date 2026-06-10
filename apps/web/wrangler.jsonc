@@ -1,8 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "road-app-web",
+  "name": "road-app",
   "main": ".open-next/worker.js",
-  "compatibility_date": "2025-01-01",
+  // Keep this date in sync with the root-level wrangler.jsonc.
+  // 2025-09-01 enables nodejs_compat v2, required by RainbowKit/Wagmi/viem
+  // on the Workers runtime (otherwise SSR throws 500 Internal Server Error).
+  "compatibility_date": "2025-09-01",
   "compatibility_flags": [
     "nodejs_compat"
   ],

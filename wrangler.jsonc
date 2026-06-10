@@ -20,9 +20,14 @@
   // `compatibility_date` and `compatibility_flags`).
   // ----------------------------------------------------------------------------
   "$schema": "node_modules/wrangler/config-schema.json",
+  // Must match apps/web/wrangler.jsonc and the Worker name in the Cloudflare
+  // dashboard, otherwise CI creates a second, parallel Worker.
   "name": "road-app",
   "main": "apps/web/.open-next/worker.js",
-  "compatibility_date": "2025-01-01",
+  // 2025-09-01 enables nodejs_compat v2 (full Buffer / process / events shims)
+  // which RainbowKit + Wagmi + viem need on the Workers runtime. Older dates
+  // are a known cause of generic 500 "Internal Server Error" responses.
+  "compatibility_date": "2025-09-01",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "apps/web/.open-next/assets",
