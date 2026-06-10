@@ -1,10 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 
+// v2 (post-merge): solo 2 contratos. DeckManager se fusionó dentro de GameState.
 const contracts = [
   { name: 'RoadAppNFTCards', path: 'contracts/RoadAppNFTCards.sol/RoadAppNFTCards.json' },
-  { name: 'RoadAppGameState', path: 'contracts/RoadAppGameState.sol/RoadAppGameState.json' },
-  { name: 'RoadAppDeckManager', path: 'contracts/RoadAppDeckManager.sol/RoadAppDeckManager.json' }
+  { name: 'RoadAppGameState', path: 'contracts/RoadAppGameState.sol/RoadAppGameState.json' }
 ];
 
 const sourceDir = path.join(__dirname, '../apps/contracts/artifacts');

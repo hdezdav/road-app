@@ -11,6 +11,17 @@
       "type": "error"
     },
     {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        }
+      ],
+      "name": "DuplicateCard",
+      "type": "error"
+    },
+    {
       "inputs": [],
       "name": "ECDSAInvalidSignature",
       "type": "error"
@@ -41,6 +52,17 @@
       "inputs": [
         {
           "internalType": "uint256",
+          "name": "size",
+          "type": "uint256"
+        }
+      ],
+      "name": "InvalidDeckSize",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
           "name": "phase",
           "type": "uint256"
         }
@@ -61,6 +83,11 @@
     {
       "inputs": [],
       "name": "MustBackupSeedFirst",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NFTContractNotSet",
       "type": "error"
     },
     {
@@ -88,6 +115,17 @@
         }
       ],
       "name": "NotInThisPhase",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        }
+      ],
+      "name": "NotOwnerOfCard",
       "type": "error"
     },
     {
@@ -155,6 +193,38 @@
         }
       ],
       "name": "BossDefeated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        }
+      ],
+      "name": "DeckCleared",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256[]",
+          "name": "deckIds",
+          "type": "uint256[]"
+        }
+      ],
+      "name": "DeckSaved",
       "type": "event"
     },
     {
@@ -306,6 +376,19 @@
     },
     {
       "inputs": [],
+      "name": "MAX_DECK_SIZE",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "MAX_PHASE",
       "outputs": [
         {
@@ -319,7 +402,27 @@
     },
     {
       "inputs": [],
+      "name": "MIN_DECK_SIZE",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "acceptOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "clearDeck",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -374,6 +477,25 @@
         {
           "internalType": "uint256[]",
           "name": "extensions",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        }
+      ],
+      "name": "getActiveDeck",
+      "outputs": [
+        {
+          "internalType": "uint256[]",
+          "name": "",
           "type": "uint256[]"
         }
       ],
@@ -651,6 +773,19 @@
     {
       "inputs": [
         {
+          "internalType": "uint256[]",
+          "name": "deckIds",
+          "type": "uint256[]"
+        }
+      ],
+      "name": "saveDeck",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "address",
           "name": "_nftContract",
           "type": "address"
@@ -695,6 +830,25 @@
           "internalType": "address",
           "name": "",
           "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        }
+      ],
+      "name": "validateDeck",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
         }
       ],
       "stateMutability": "view",

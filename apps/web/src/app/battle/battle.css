@@ -377,6 +377,7 @@
 /* ── Health bar ── */
 .health-bar-wrap {
   width: 240px;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -791,10 +792,12 @@
   }
 
   .card-selection__grid {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 12px;
   }
 
+  /* En mobile el log estaba en posición absoluta y se solapaba con la mano de
+     cartas; lo pasamos a flujo normal debajo de la zona de juego. */
   .combat-log {
     position: relative;
     right: auto;
@@ -803,5 +806,60 @@
     width: 100%;
     margin-top: 16px;
     max-height: 180px;
+  }
+
+  /* La mano (3 cartas rotadas) se desbordaba lateralmente: reducimos gap y
+     ángulos de rotación. */
+  .player-hand {
+    gap: 8px;
+    padding: 16px 0 24px;
+  }
+
+  .hand-card-slot:nth-child(1) { transform: rotate(-4deg); }
+  .hand-card-slot:nth-child(3) { transform: rotate(4deg); }
+}
+
+/* Pantallas muy angostas (MiniPay garantiza mínimo 360px). Escalamos la mano
+   y la carta jugada para que no produzcan scroll horizontal ni se solapen con
+   el indicador de ronda o el log. */
+@media (max-width: 420px) {
+  .player-hand {
+    gap: 4px;
+    transform: scale(0.82);
+    transform-origin: center bottom;
+  }
+
+  .play-zone__card {
+    transform: scale(0.85);
+  }
+
+  .play-zone::before {
+    width: 220px;
+    height: 220px;
+  }
+
+  .damage-popup {
+    font-size: 40px;
+  }
+
+  .damage-popup--bonus {
+    font-size: 46px;
+  }
+
+  .enemy-preview__name {
+    font-size: 22px;
+  }
+
+  .enemy-stats {
+    gap: 8px;
+  }
+
+  .enemy-stat {
+    padding: 8px 10px;
+    min-width: 56px;
+  }
+
+  .enemy-stat__value {
+    font-size: 20px;
   }
 }

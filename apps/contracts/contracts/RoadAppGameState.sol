@@ -8,13 +8,30 @@ import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 interface IRoadAppNFTCards {
     function mintBossCard(address to, uint256 bossId) external;
     function mintRewardPack(address to, uint256 phase) external;
+    function ownerOf(uint256 tokenId) external view returns (address);
 }
 
 /**
  * @title RoadAppGameState
- * @notice Player state machine + anti-cheat for the Road App MiniPay game.
+ * @notice Player state machine + anti-cheat + active deck storage for the Road
+ *         App MiniPay game.
  *
  *  Design choices (aligned with Celopedia recommendations):
+ *  - **Fusión DeckManager + GameState (v2)**: en v1 había tres contratos
+ *    separados (NFTCards + GameState + DeckManager). Celopedia recomienda para
+ *    MiniPay **separar activos del usuario de la lógica mutable**, pero no
+ *    fragmentar la lógica en piezas cuando no aportan valor. DeckManager era
+ *    el contrato más chico (~600K gas de despliegue), no almacenaba activos y
+ *    su única dependencia hacia el NFT era una llamada de view `ownerOf`. Al
+ *    fusionarlo aquí:
+ *      • bajamos de 3 a 2 deploys (menos puntos de falla en mainnet),
+ *      • eliminamos un wiring step (`setNFTCardsContract`),
+ *      • `clearDeck()` se invoca automáticamente desde `restartPlayer` para
+ *        que un soft-reset no deje al jugador con un deck stale,
+ *      • el frontend ya no tiene que recordar tres direcciones distintas.
+ *    NFTCards sigue siendo un contrato aparte porque es el activo del jugador:
+ *    si encontramos un bug en la lógica de juego podemos redeployar este
+ *    contrato sin migrar las cartas ya minteadas.
  *  - Anti-cheat uses EIP-712 typed data (BossDefeat / SeedBackup) instead of raw
  *    `keccak256(abi.encodePacked(...))`. The typed data domain includes name, version,
  *    chainId and verifyingContract, so a signature minted on Sepolia cannot be replayed
@@ -26,7 +43,8 @@ interface IRoadAppNFTCards {
  *  - `recordBossDefeat` rejects phases outside [1..3] explicitly, instead of falling
  *    through the `else if` chain and silently wasting the player's nonce/signature.
  *  - `restartPlayer` bumps the player's nonce so any pre-signed boss-defeat receipts
- *    from the previous lifecycle cannot be replayed in the new one.
+ *    from the previous lifecycle cannot be replayed in the new one, AND limpia el
+ *    deck activo para que el frontend no muestre uno stale después del reset.
  *  - Ownable2Step protects against a lost deployer key in MiniPay.
  *  - Events are emitted on every admin change for The Graph / Goldsky indexing.
  *  - `getRegisteredPlayers(offset, limit)` keeps the on-chain leaderboard cheap on
@@ -49,6 +67,10 @@ contract RoadAppGameState is Ownable2Step, EIP712 {
     uint256 public constant MAX_PHASE = 3;
     uint256 public constant COMPLETED_PHASE = 4;
 
+    /// @dev UI shows 4-card decks for battles. We allow up to 10 for future modes.
+    uint256 public constant MIN_DECK_SIZE = 2;
+    uint256 public constant MAX_DECK_SIZE = 10;
+
     struct PlayerState {
         uint256 currentPhase;
         bool hasSeedPhraseBackedUp;
@@ -61,6 +83,10 @@ contract RoadAppGameState is Ownable2Step, EIP712 {
     mapping(address => uint256) public nonces;
     IRoadAppNFTCards public nftContract;
     address public trustedSigner;
+
+    /// @dev Mazo activo del jugador (array de tokenIds). Antes vivía en
+    /// `RoadAppDeckManager`; se fusionó para simplificar el despliegue.
+    mapping(address => uint256[]) private activeDecks;
 
     /// @notice All addresses that ever called `registerPlayer`. Used by the on-chain
     /// leaderboard to enumerate participants without scanning logs (saves Forno RPC).
@@ -75,6 +101,8 @@ contract RoadAppGameState is Ownable2Step, EIP712 {
     event PlayerRestarted(address indexed player, uint256 noncesBumpedTo);
     event SignerUpdated(address indexed newSigner);
     event NFTContractUpdated(address indexed newNFTContract);
+    event DeckSaved(address indexed player, uint256[] deckIds);
+    event DeckCleared(address indexed player);
 
     error AlreadyRegistered();
     error NotInThisPhase(uint256 expected, uint256 actual);
@@ -85,6 +113,10 @@ contract RoadAppGameState is Ownable2Step, EIP712 {
     error NotRegistered();
     error InvalidPhase(uint256 phase);
     error NotAContract(address target);
+    error InvalidDeckSize(uint256 size);
+    error DuplicateCard(uint256 tokenId);
+    error NotOwnerOfCard(uint256 tokenId);
+    error NFTContractNotSet();
 
     constructor() Ownable(msg.sender) EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION) {}
 
@@ -128,12 +160,21 @@ contract RoadAppGameState is Ownable2Step, EIP712 {
      *      a tester wants to replay the journey. Does not burn cards.
      *      Bumps the player's nonce so pre-signed BossDefeat / SeedBackup receipts
      *      from before the reset cannot be replayed against the fresh lifecycle.
+     *      También limpia el deck activo: como las cartas son soulbound siguen en la
+     *      wallet del jugador, pero el deck guardado pertenecía a la "vida" anterior y
+     *      no tiene sentido conservarlo después del reset.
      */
     function restartPlayer(address player) external onlyOwner {
         if (players[player].currentPhase == 0) revert NotRegistered();
         delete players[player];
         players[player].currentPhase = 1;
         nonces[player] += 1; // invalidate every signature issued before this point
+
+        if (activeDecks[player].length != 0) {
+            delete activeDecks[player];
+            emit DeckCleared(player);
+        }
+
         emit PlayerRestarted(player, nonces[player]);
         emit PhaseAdvanced(player, 1);
     }
@@ -246,6 +287,74 @@ contract RoadAppGameState is Ownable2Step, EIP712 {
                 nftContract.mintRewardPack(msg.sender, 3); // CARD_CELO_SPEED
             }
         }
+    }
+
+    // ---------------------------------------------------------------
+    // Deck management (fusionado desde RoadAppDeckManager v1)
+    // ---------------------------------------------------------------
+
+    /**
+     * @notice Guarda el deck activo del jugador (entre MIN_DECK_SIZE y
+     *         MAX_DECK_SIZE cartas). Verifica que el jugador sea dueño de cada
+     *         tokenId y que no haya duplicados.
+     *
+     * @dev Requiere que `nftContract` haya sido configurado por el owner.
+     *      Duplicate-detection es un doble bucle O(n²). Con MAX_DECK_SIZE = 10
+     *      el coste en gas es despreciable y evita SSTORE adicionales. Si en
+     *      el futuro se sube el tope conviene migrar a `tstore/tload` (Cancun)
+     *      para bajar a O(n).
+     *      Soulbound cards (enforced en RoadAppNFTCards) garantizan que
+     *      `validateDeck` no se vuelva obsoleto por transferencias.
+     */
+    function saveDeck(uint256[] calldata deckIds) external {
+        if (address(nftContract) == address(0)) revert NFTContractNotSet();
+
+        uint256 len = deckIds.length;
+        if (len < MIN_DECK_SIZE || len > MAX_DECK_SIZE) revert InvalidDeckSize(len);
+
+        // O(n²) dup check: cheap up to MAX_DECK_SIZE=10 (~45 comparisons).
+        for (uint256 i = 0; i < len; i++) {
+            uint256 tokenId = deckIds[i];
+            for (uint256 j = i + 1; j < len; j++) {
+                if (deckIds[j] == tokenId) revert DuplicateCard(tokenId);
+            }
+            // try/catch turns "ERC721NonexistentToken" into a friendlier revert.
+            try nftContract.ownerOf(tokenId) returns (address ownerAddr) {
+                if (ownerAddr != msg.sender) revert NotOwnerOfCard(tokenId);
+            } catch {
+                revert NotOwnerOfCard(tokenId);
+            }
+        }
+
+        activeDecks[msg.sender] = deckIds;
+        emit DeckSaved(msg.sender, deckIds);
+    }
+
+    /// @notice Lets a player wipe their saved deck. Useful after a soft reset.
+    function clearDeck() external {
+        delete activeDecks[msg.sender];
+        emit DeckCleared(msg.sender);
+    }
+
+    function getActiveDeck(address player) external view returns (uint256[] memory) {
+        return activeDecks[player];
+    }
+
+    function validateDeck(address player) external view returns (bool) {
+        uint256[] memory deck = activeDecks[player];
+        if (deck.length == 0) return false;
+        if (address(nftContract) == address(0)) return false;
+
+        for (uint256 i = 0; i < deck.length; i++) {
+            try nftContract.ownerOf(deck[i]) returns (address ownerAddr) {
+                if (ownerAddr != player) {
+                    return false;
+                }
+            } catch {
+                return false;
+            }
+        }
+        return true;
     }
 
     // ---------------------------------------------------------------

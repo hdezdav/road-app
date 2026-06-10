@@ -10,6 +10,15 @@ const PK = rawPk.length === 0
   ? undefined
   : (rawPk.startsWith("0x") ? rawPk : `0x${rawPk}`) as `0x${string}`;
 
+// Optional manual gas price override (wei). Si se define, se respeta; si no, se
+// deja que Hardhat/viem estimen las fees EIP-1559 dinámicamente desde el
+// sequencer de Celo. Esto evita el error `gas fee cap is below the minimum base
+// fee`: un gasPrice fijo (p.ej. 25 gwei) puede quedar por debajo de la base fee
+// actual del bloque y el sequencer L2 rechaza la tx.
+const manualGasPrice = process.env.CELO_GAS_PRICE_WEI
+  ? Number(process.env.CELO_GAS_PRICE_WEI)
+  : undefined;
+
 // Pin solc 0.8.28 + evmVersion `cancun`. Justificación (alineada con Celopedia):
 //   - Celo migró a L2 (OP-stack) en marzo 2025 (block 31_056_500) y los RPC
 //     oficiales (Forno celo), Quicknode y dRPC ya soportan la upgrade Cancun
@@ -40,12 +49,10 @@ const config: HardhatUserConfig = {
       url: process.env.CELO_RPC_URL || "https://forno.celo.org",
       accounts: PK ? [PK] : [],
       chainId: 42220,
-      // Celo (OP-stack L2) acepta gasPrice fijo. Sin esto, viem pide
-      // `eth_maxPriorityFeePerGas` y el sequencer a veces devuelve picos de
-      // 250+ gwei que vacían la cuenta del deployer. 25 gwei sobra para que
-      // el bloque siguiente nos incluya y mantiene el costo del despliegue
-      // completo por debajo de 0.2 CELO.
-      gasPrice: Number(process.env.CELO_GAS_PRICE_WEI || 25_000_000_000), // 25 gwei
+      // Si CELO_GAS_PRICE_WEI no está definido, omitimos `gasPrice` para que
+      // Hardhat/viem usen estimación dinámica (EIP-1559) y siempre superen la
+      // minimum base fee del sequencer. Con override se respeta el valor fijo.
+      ...(manualGasPrice !== undefined ? { gasPrice: manualGasPrice } : {}),
     },
     // Local development (hardhat node).
     localhost: {

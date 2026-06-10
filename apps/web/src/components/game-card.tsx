@@ -55,7 +55,7 @@ export function GameCard({ card, className, style }: GameCardProps) {
       whileHover={{ y: -14, rotateZ: 0, scale: 1.04 }}
       transition={{ type: "spring", stiffness: 250, damping: 18 }}
       className={cn(
-        "relative w-56 select-none overflow-hidden rounded-2xl bg-white p-2 shadow-2xl ring-2",
+        "relative w-40 sm:w-56 select-none overflow-hidden rounded-2xl bg-white p-2 shadow-2xl ring-2",
         rarityRing[card.rarity] || "ring-slate-300",
         className
       )}
@@ -63,16 +63,17 @@ export function GameCard({ card, className, style }: GameCardProps) {
       {/* Art panel */}
       <div
         className={cn(
-          "relative flex h-36 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br",
+          "relative flex h-28 sm:h-36 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br",
           card.gradient
         )}
       >
         <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_20%_20%,white,transparent_40%)]" />
         {Icon ? (
-          <Icon className="h-16 w-16 text-white drop-shadow-lg" strokeWidth={1.5} />
+          <Icon className="h-12 w-12 sm:h-16 sm:w-16 text-white drop-shadow-lg" strokeWidth={1.5} />
         ) : (
           <span className="text-4xl text-white">🎴</span>
         )}
+
         <span className="absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-sm font-bold text-slate-800 shadow">
           {energy}
         </span>

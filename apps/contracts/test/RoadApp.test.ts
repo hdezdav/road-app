@@ -1,9 +1,14 @@
 import { expect } from "chai";
 import hre from "hardhat";
-import { getAddress, parseSignature } from "viem";
+import { getAddress } from "viem";
 
 /**
- * Smoke tests for the three Road App contracts.
+ * Smoke tests for the two Road App contracts (post v2 merge).
+ *
+ * v2: DeckManager se fusionó dentro de GameState, así que el fixture solo
+ * despliega 2 contratos y los tests de "DeckManager" llaman a `game` en
+ * lugar de un contrato separado.
+ *
  * Run with: `pnpm --filter hardhat test`
  */
 describe("Road App contracts", function () {
@@ -13,14 +18,13 @@ describe("Road App contracts", function () {
 
     const baseURI = "ipfs://test/";
     const nft = await hre.viem.deployContract("RoadAppNFTCards", [baseURI]);
-    const deck = await hre.viem.deployContract("RoadAppDeckManager", [nft.address]);
     const game = await hre.viem.deployContract("RoadAppGameState", []);
 
     // Wire
     await game.write.setNFTContract([nft.address]);
     await nft.write.setMinter([game.address, true]);
 
-    return { owner, alice, bob, signer, publicClient, nft, deck, game, baseURI };
+    return { owner, alice, bob, signer, publicClient, nft, game, baseURI };
   }
 
   // ---------------- Starter pack ----------------
@@ -78,7 +82,7 @@ describe("Road App contracts", function () {
     });
 
     it("setBaseMetadataURI swaps the image prefix", async () => {
-      const { nft, owner, alice } = await deployFixture();
+      const { nft, alice } = await deployFixture();
       const aliceNft = await hre.viem.getContractAt("RoadAppNFTCards", nft.address, { client: { wallet: alice } });
       await aliceNft.write.mintStarterPack([alice.account.address]);
 
@@ -108,7 +112,7 @@ describe("Road App contracts", function () {
 
   describe("NFTCards - mintBossCard", () => {
     it("reverts on invalid bossId", async () => {
-      const { nft, owner, alice } = await deployFixture();
+      const { nft, alice } = await deployFixture();
       await expect(nft.write.mintBossCard([alice.account.address, 99n])).to.be.rejected;
     });
 
@@ -258,61 +262,79 @@ describe("Road App contracts", function () {
     });
   });
 
-  // ---------------- DeckManager ----------------
+  // ---------------- Deck management (fusionado dentro de GameState) ----------------
 
-  describe("DeckManager", () => {
+  describe("GameState - deck management", () => {
     it("rejects deck containing cards you don't own", async () => {
-      const { deck, nft, alice, bob } = await deployFixture();
+      const { game, nft, alice, bob } = await deployFixture();
       const aliceNft = await hre.viem.getContractAt("RoadAppNFTCards", nft.address, { client: { wallet: alice } });
       await aliceNft.write.mintStarterPack([alice.account.address]); // mints tokenIds 1..4 to alice
 
-      const bobDeck = await hre.viem.getContractAt("RoadAppDeckManager", deck.address, { client: { wallet: bob } });
-      await expect(bobDeck.write.saveDeck([[1n, 2n]])).to.be.rejected;
+      const bobGame = await hre.viem.getContractAt("RoadAppGameState", game.address, { client: { wallet: bob } });
+      await expect(bobGame.write.saveDeck([[1n, 2n]])).to.be.rejected;
     });
 
     it("rejects deck smaller than MIN_DECK_SIZE", async () => {
-      const { deck, nft, alice } = await deployFixture();
+      const { game, nft, alice } = await deployFixture();
       const aliceNft = await hre.viem.getContractAt("RoadAppNFTCards", nft.address, { client: { wallet: alice } });
       await aliceNft.write.mintStarterPack([alice.account.address]);
-      const aliceDeck = await hre.viem.getContractAt("RoadAppDeckManager", deck.address, { client: { wallet: alice } });
-      await expect(aliceDeck.write.saveDeck([[1n]])).to.be.rejected;
+      const aliceGame = await hre.viem.getContractAt("RoadAppGameState", game.address, { client: { wallet: alice } });
+      await expect(aliceGame.write.saveDeck([[1n]])).to.be.rejected;
     });
 
     it("rejects deck with nonexistent tokenIds with a friendly error", async () => {
-      const { deck, alice } = await deployFixture();
-      const aliceDeck = await hre.viem.getContractAt("RoadAppDeckManager", deck.address, { client: { wallet: alice } });
-      await expect(aliceDeck.write.saveDeck([[42n, 43n]])).to.be.rejected;
+      const { game, alice } = await deployFixture();
+      const aliceGame = await hre.viem.getContractAt("RoadAppGameState", game.address, { client: { wallet: alice } });
+      await expect(aliceGame.write.saveDeck([[42n, 43n]])).to.be.rejected;
     });
 
     it("clearDeck wipes the saved deck", async () => {
-      const { deck, nft, alice } = await deployFixture();
+      const { game, nft, alice } = await deployFixture();
       const aliceNft = await hre.viem.getContractAt("RoadAppNFTCards", nft.address, { client: { wallet: alice } });
       await aliceNft.write.mintStarterPack([alice.account.address]);
-      const aliceDeck = await hre.viem.getContractAt("RoadAppDeckManager", deck.address, { client: { wallet: alice } });
-      await aliceDeck.write.saveDeck([[1n, 2n, 3n, 4n]]);
-      await aliceDeck.write.clearDeck();
-      const saved = (await deck.read.getActiveDeck([alice.account.address])) as bigint[];
+      const aliceGame = await hre.viem.getContractAt("RoadAppGameState", game.address, { client: { wallet: alice } });
+      await aliceGame.write.saveDeck([[1n, 2n, 3n, 4n]]);
+      await aliceGame.write.clearDeck();
+      const saved = (await game.read.getActiveDeck([alice.account.address])) as bigint[];
       expect(saved.length).to.equal(0);
-      expect(await deck.read.validateDeck([alice.account.address])).to.equal(false);
+      expect(await game.read.validateDeck([alice.account.address])).to.equal(false);
     });
 
     it("rejects duplicates", async () => {
-      const { deck, nft, alice } = await deployFixture();
+      const { game, nft, alice } = await deployFixture();
       const aliceNft = await hre.viem.getContractAt("RoadAppNFTCards", nft.address, { client: { wallet: alice } });
       await aliceNft.write.mintStarterPack([alice.account.address]);
 
-      const aliceDeck = await hre.viem.getContractAt("RoadAppDeckManager", deck.address, { client: { wallet: alice } });
-      await expect(aliceDeck.write.saveDeck([[1n, 1n]])).to.be.rejected;
+      const aliceGame = await hre.viem.getContractAt("RoadAppGameState", game.address, { client: { wallet: alice } });
+      await expect(aliceGame.write.saveDeck([[1n, 1n]])).to.be.rejected;
     });
 
     it("accepts a valid deck and validateDeck returns true", async () => {
-      const { deck, nft, alice } = await deployFixture();
+      const { game, nft, alice } = await deployFixture();
       const aliceNft = await hre.viem.getContractAt("RoadAppNFTCards", nft.address, { client: { wallet: alice } });
       await aliceNft.write.mintStarterPack([alice.account.address]);
 
-      const aliceDeck = await hre.viem.getContractAt("RoadAppDeckManager", deck.address, { client: { wallet: alice } });
-      await aliceDeck.write.saveDeck([[1n, 2n, 3n, 4n]]);
-      expect(await deck.read.validateDeck([alice.account.address])).to.equal(true);
+      const aliceGame = await hre.viem.getContractAt("RoadAppGameState", game.address, { client: { wallet: alice } });
+      await aliceGame.write.saveDeck([[1n, 2n, 3n, 4n]]);
+      expect(await game.read.validateDeck([alice.account.address])).to.equal(true);
+    });
+
+    it("restartPlayer wipes the saved deck (no stale deck after soft reset)", async () => {
+      const { game, nft, owner, alice } = await deployFixture();
+      const aliceNft = await hre.viem.getContractAt("RoadAppNFTCards", nft.address, { client: { wallet: alice } });
+      await aliceNft.write.mintStarterPack([alice.account.address]);
+
+      const aliceGame = await hre.viem.getContractAt("RoadAppGameState", game.address, { client: { wallet: alice } });
+      await aliceGame.write.registerPlayer();
+      await aliceGame.write.saveDeck([[1n, 2n, 3n, 4n]]);
+      expect(await game.read.validateDeck([alice.account.address])).to.equal(true);
+
+      // owner triggers the soft reset
+      await game.write.restartPlayer([alice.account.address]);
+
+      const saved = (await game.read.getActiveDeck([alice.account.address])) as bigint[];
+      expect(saved.length).to.equal(0);
+      expect(await game.read.validateDeck([alice.account.address])).to.equal(false);
     });
   });
 });

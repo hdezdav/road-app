@@ -15,7 +15,7 @@ export default function CardsPage() {
   const { ownedCards, hasOpenedPack } = useInventory();
 
   return (
-    <div className="relative min-h-[calc(100vh-64px)] px-6 py-16">
+    <div className="relative min-h-[calc(100vh-64px)] px-4 py-16 sm:px-6">
       <BgGradient
         gradientFrom="#ffffff"
         gradientTo="#c3b8ff"
@@ -35,7 +35,7 @@ export default function CardsPage() {
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-6 text-4xl font-extrabold tracking-tight text-slate-800 md:text-5xl"
+          className="mt-6 text-3xl font-extrabold tracking-tight text-slate-800 sm:text-4xl md:text-5xl"
         >
           Tu mazo de <span className="bg-gradient-to-r from-indigo-600 to-indigo-800 bg-clip-text text-transparent">Conocimiento</span>
         </motion.h1>
@@ -86,7 +86,7 @@ export default function CardsPage() {
           </motion.div>
         ) : (
           /* Card collection */
-          <div className="grid grid-cols-1 justify-items-center gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 justify-items-center gap-4 sm:grid-cols-2 sm:gap-8 md:grid-cols-3 lg:grid-cols-4">
             {ownedCards.map((card, i) => (
               <motion.div
                 key={card.id}
@@ -101,7 +101,7 @@ export default function CardsPage() {
         )}
       </div>
 
-      <div className="mt-16 flex justify-center gap-4">
+      <div className="mt-16 flex flex-wrap justify-center gap-3 px-2 sm:gap-4">
         <Button asChild variant="outline" className="bg-white/60 backdrop-blur rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50">
           <Link href="/">Volver al inicio</Link>
         </Button>

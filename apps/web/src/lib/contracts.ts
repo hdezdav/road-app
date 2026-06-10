@@ -1,9 +1,13 @@
 import NFTCardsArtifact from './abi/RoadAppNFTCards.json';
 import GameStateArtifact from './abi/RoadAppGameState.json';
-import DeckManagerArtifact from './abi/RoadAppDeckManager.json';
 
 /**
  * Contract addresses for the Road App.
+ *
+ * **v2 (post-merge)**: solo hay 2 contratos. `RoadAppDeckManager` se fusionó
+ * dentro de `RoadAppGameState` para simplificar el despliegue en MiniPay.
+ * `saveDeck` / `clearDeck` / `getActiveDeck` / `validateDeck` ahora viven en
+ * GAME_STATE_ABI.
  *
  * Celopedia best practice: pin a single supported chain via NEXT_PUBLIC_CHAIN_ID
  * so the frontend cannot accidentally read state from the wrong network (a common
@@ -13,7 +17,6 @@ import DeckManagerArtifact from './abi/RoadAppDeckManager.json';
  * Override per environment in `apps/web/.env.local`:
  *   NEXT_PUBLIC_NFT_CARDS_ADDRESS=0x...
  *   NEXT_PUBLIC_GAME_STATE_ADDRESS=0x...
- *   NEXT_PUBLIC_DECK_MANAGER_ADDRESS=0x...
  */
 export const SUPPORTED_CHAIN_ID = Number(
   process.env.NEXT_PUBLIC_CHAIN_ID || 42220
@@ -24,10 +27,7 @@ export const CONTRACT_ADDRESSES = {
     "0x0000000000000000000000000000000000000000") as `0x${string}`,
   GAME_STATE: (process.env.NEXT_PUBLIC_GAME_STATE_ADDRESS ||
     "0x0000000000000000000000000000000000000000") as `0x${string}`,
-  DECK_MANAGER: (process.env.NEXT_PUBLIC_DECK_MANAGER_ADDRESS ||
-    "0x0000000000000000000000000000000000000000") as `0x${string}`,
 };
 
 export const NFT_CARDS_ABI = NFTCardsArtifact.abi;
 export const GAME_STATE_ABI = GameStateArtifact.abi;
-export const DECK_MANAGER_ABI = DeckManagerArtifact.abi;

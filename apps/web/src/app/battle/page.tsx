@@ -22,7 +22,7 @@ import { GameCard } from "@/components/game-card";
 import { Button } from "@/components/ui/button";
 import { heroCards, type Card } from "@/data/cards";
 import { useInventory } from "@/context/InventoryContext";
-import { CONTRACT_ADDRESSES, DECK_MANAGER_ABI, GAME_STATE_ABI } from "@/lib/contracts";
+import { CONTRACT_ADDRESSES, GAME_STATE_ABI } from "@/lib/contracts";
 import "./battle.css";
 
 /* ─── Constants ─── */
@@ -136,15 +136,15 @@ export default function BattlePage() {
     if (selectedIds.length < MAX_HAND_SIZE) return;
     setSavingDeck(true);
     try {
-      // Step 1: Save deck on-chain in DeckManager contract
+      // Step 1: Save deck on-chain (deck storage fusionado en GameState desde v2).
       const ids = selectedIds.map((id) => {
         const card = ownedCards.find((c) => c.id === id);
         return card ? BigInt(card.nftTokenId || 0) : 0n;
       }).filter((id) => id !== 0n);
 
       const tx = await writeContractAsync({
-        address: CONTRACT_ADDRESSES.DECK_MANAGER,
-        abi: DECK_MANAGER_ABI,
+        address: CONTRACT_ADDRESSES.GAME_STATE,
+        abi: GAME_STATE_ABI,
         functionName: "saveDeck",
         args: [ids],
       });

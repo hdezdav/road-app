@@ -3,24 +3,31 @@ import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 
 /**
- * Deployment script aligned with Celopedia best practices:
+ * Deployment script aligned with Celopedia best practices.
  *
- *  1. Deploys RoadAppNFTCards (with baseURI from env or sensible default).
- *  2. Deploys RoadAppDeckManager with the NFTCards address.
- *  3. Deploys RoadAppGameState (EIP-712 enabled).
- *  4. Wires permissions:
+ * **v2 (post-merge)**: bajamos de 3 a 2 contratos. `RoadAppDeckManager` se
+ * fusionó dentro de `RoadAppGameState` (ver el contrato para el racional).
+ * Esto elimina 1 deploy + 1 wiring transaction y reduce los puntos de falla
+ * del despliegue en mainnet a la mitad.
+ *
+ *  1. Despliega RoadAppNFTCards (con baseURI desde env o un default sensato).
+ *  2. Despliega RoadAppGameState (EIP-712 + deck storage).
+ *  3. Wire de permisos:
  *       - GameState.nftContract = NFTCards
  *       - NFTCards.authorizedMinters[GameState] = true
- *  5. Optionally sets trusted signer if TRUSTED_SIGNER_ADDRESS is provided.
- *  6. Persists addresses to apps/contracts/deployments/<network>.json so the
- *     web app can pick them up via NEXT_PUBLIC_* env vars.
+ *  4. Opcional: setea trusted signer si TRUSTED_SIGNER_ADDRESS está definido.
+ *  5. Persiste addresses en apps/contracts/deployments/<network>.json para
+ *     que la web app las pueda recoger via NEXT_PUBLIC_* env vars.
  *
  * Required env:
- *   - PRIVATE_KEY (the deployer EOA)
+ *   - PRIVATE_KEY (la EOA del deployer)
  * Optional env:
  *   - NFT_BASE_METADATA_URI (defaults to GitHub raw URL placeholder)
  *   - TRUSTED_SIGNER_ADDRESS (sets EIP-712 signer right after deploy)
  *   - ETHERSCAN_API_KEY (for `pnpm verify:celo ...`)
+ *   - CELO_GAS_PRICE_WEI (override del gasPrice fijo; default 300 gwei)
+ *   - REUSE_NFT_CARDS_ADDRESS / REUSE_GAME_STATE_ADDRESS (skip individual
+ *     deploys en un retry parcial sin quemar CELO de nuevo).
  */
 async function main() {
   const network = hre.network.name;
@@ -36,7 +43,6 @@ async function main() {
   // sigue siendo idempotente y el signer puede setearse después con
   // `RoadAppGameState.setTrustedSigner(address)` por el owner. Mientras tanto
   // GameState corre en OPEN MODE (cualquier address puede pasar el quiz).
-
 
   const balance = await publicClient.getBalance({ address: deployerAddr });
   console.log("Deployer balance (wei):", balance.toString());
@@ -55,62 +61,78 @@ async function main() {
     process.env.NFT_BASE_METADATA_URI ||
     "https://raw.githubusercontent.com/road-app/metadata/main/";
 
-  // Celopedia note: Celo (OP-stack L2 desde marzo 2025) a veces devuelve el
-  // engañoso `contract creation code storage out of gas` cuando el estimador
-  // automático multiplica el gas y `gas * gasPrice` supera el balance del
-  // deployer. Fijamos un `gas` manual ajustado, medido con `REPORT_GAS=1 pnpm
-  // test`:
-  //
-  //   RoadAppNFTCards    -> 3_013_737 gas
-  //   RoadAppDeckManager ->   595_535 gas
-  //   RoadAppGameState   -> 1_377_065 gas
-  //
-  // Padding ~30% por contrato. Total ≈ 6.7M gas; a 25 gwei en mainnet ≈ 0.17
-  // CELO.
   const isCeloL2 = network === "celo";
-  const gasFor = (n: bigint) => (isCeloL2 ? { gas: n } : {});
 
-  // Optional resume: if a previous run partially succeeded, the user can pass
-  // already-deployed addresses via env and we'll skip those steps. This avoids
-  // burning faucet CELO for nothing on retries.
+  // Celopedia / Celo L2 (OP-stack) gotcha: el `eth_gasPrice` / fee suggestion
+  // que devuelve el Forno público suele venir POR DEBAJO del mínimo que exige
+  // el sequencer. Cuando viem arma la tx EIP-1559 con esa estimación, el
+  // sequencer la rechaza con:
+  //   `error_forwarding_sequencer: gas fee cap is below the minimum base fee`
+  //
+  // Solución: forzamos un `gasPrice` explícito (tx legacy type-0) lo bastante
+  // alto para superar siempre el mínimo del sequencer. Pasar `gasPrice` hace
+  // que viem NO consulte la fee suggestion de Forno y mande la tx tal cual.
+  //
+  // Default 300 gwei: en el despliegue real (2026-06-10) el mínimo base fee del
+  // sequencer estaba alto; 50/60 gwei eran rechazados y 300 gwei pasó sin
+  // problema. Aun así el costo total (~6.4M gas) es ~0.002 CELO. Overridable
+  // con CELO_GAS_PRICE_WEI si el mínimo del sequencer cambia.
+  const celoGasPrice = BigInt(
+    process.env.CELO_GAS_PRICE_WEI || 300_000_000_000 // 300 gwei
+  );
+  if (isCeloL2) {
+    console.log("Gas price (wei):", celoGasPrice.toString(), "(legacy tx)");
+  }
+
+  // Deploy overrides: gas limit manual (evita el estimador de Celo que a veces
+  // tira `contract creation code storage out of gas`) + gasPrice fijo.
+  const deployOpts = (gas: bigint) =>
+    isCeloL2 ? { gas, gasPrice: celoGasPrice } : {};
+  // Write overrides: solo gasPrice fijo; el gas limit lo estima viem ok para
+  // los setters baratos.
+  const writeOpts = () => (isCeloL2 ? { gasPrice: celoGasPrice } : {});
+
+  // Optional resume: si un run anterior parcialmente succeeded, el user puede
+  // pasar addresses ya desplegadas via env y skip those steps. Evita quemar
+  // CELO por nada en retries.
   const reuseNFT = process.env.REUSE_NFT_CARDS_ADDRESS as `0x${string}` | undefined;
-  const reuseDeck = process.env.REUSE_DECK_MANAGER_ADDRESS as `0x${string}` | undefined;
   const reuseGame = process.env.REUSE_GAME_STATE_ADDRESS as `0x${string}` | undefined;
 
   // 1. Deploy RoadAppNFTCards
-  console.log("\n[1/4] Deploying RoadAppNFTCards ...");
+  console.log("\n[1/3] Deploying RoadAppNFTCards ...");
   const nftCards = reuseNFT
     ? await hre.viem.getContractAt("RoadAppNFTCards", reuseNFT)
-    : await hre.viem.deployContract("RoadAppNFTCards", [baseMetadataURI], gasFor(4_000_000n));
+    : await hre.viem.deployContract(
+        "RoadAppNFTCards",
+        [baseMetadataURI],
+        deployOpts(4_000_000n)
+      );
   console.log("    RoadAppNFTCards:", nftCards.address, reuseNFT ? "(reused)" : "");
 
-  // 2. Deploy RoadAppDeckManager
-  console.log("\n[2/4] Deploying RoadAppDeckManager ...");
-  const deckManager = reuseDeck
-    ? await hre.viem.getContractAt("RoadAppDeckManager", reuseDeck)
-    : await hre.viem.deployContract("RoadAppDeckManager", [nftCards.address], gasFor(900_000n));
-  console.log("    RoadAppDeckManager:", deckManager.address, reuseDeck ? "(reused)" : "");
-
-  // 3. Deploy RoadAppGameState
-  console.log("\n[3/4] Deploying RoadAppGameState ...");
+  // 2. Deploy RoadAppGameState (incluye DeckManager fusionado)
+  console.log("\n[2/3] Deploying RoadAppGameState ...");
   const gameState = reuseGame
     ? await hre.viem.getContractAt("RoadAppGameState", reuseGame)
-    : await hre.viem.deployContract("RoadAppGameState", [], gasFor(1_800_000n));
+    : await hre.viem.deployContract(
+        "RoadAppGameState",
+        [],
+        deployOpts(2_400_000n)
+      );
   console.log("    RoadAppGameState:", gameState.address, reuseGame ? "(reused)" : "");
 
-  // 4. Wire permissions
-  console.log("\n[4/4] Wiring permissions ...");
-  const h1 = await gameState.write.setNFTContract([nftCards.address]);
+  // 3. Wire permissions (cada write también lleva el gasPrice fijo)
+  console.log("\n[3/3] Wiring permissions ...");
+  const h1 = await gameState.write.setNFTContract([nftCards.address], writeOpts());
   await publicClient.waitForTransactionReceipt({ hash: h1 });
   console.log("    GameState.setNFTContract -> ok");
 
-  const h2 = await nftCards.write.setMinter([gameState.address, true]);
+  const h2 = await nftCards.write.setMinter([gameState.address, true], writeOpts());
   await publicClient.waitForTransactionReceipt({ hash: h2 });
   console.log("    NFTCards.setMinter(GameState, true) -> ok");
 
   if (process.env.TRUSTED_SIGNER_ADDRESS) {
     const signer = process.env.TRUSTED_SIGNER_ADDRESS as `0x${string}`;
-    const h3 = await gameState.write.setTrustedSigner([signer]);
+    const h3 = await gameState.write.setTrustedSigner([signer], writeOpts());
     await publicClient.waitForTransactionReceipt({ hash: h3 });
     console.log("    GameState.setTrustedSigner ->", signer);
   } else {
@@ -119,7 +141,7 @@ async function main() {
     );
   }
 
-  // 5. Persist deployment file
+  // 4. Persist deployment file
   const out = {
     network,
     chainId: hre.network.config.chainId,
@@ -128,7 +150,6 @@ async function main() {
     contracts: {
       RoadAppNFTCards: nftCards.address,
       RoadAppGameState: gameState.address,
-      RoadAppDeckManager: deckManager.address,
     },
     baseMetadataURI,
     trustedSigner: process.env.TRUSTED_SIGNER_ADDRESS || null,
@@ -140,12 +161,11 @@ async function main() {
   writeFileSync(file, JSON.stringify(out, null, 2));
   console.log(`\nDeployment saved -> ${file}`);
 
-  // 6. Friendly copy-paste for the web app
+  // 5. Friendly copy-paste para la web app
   console.log("\n==================================================");
   console.log("Add these to apps/web/.env.local and restart Next.js:");
   console.log(`NEXT_PUBLIC_NFT_CARDS_ADDRESS=${nftCards.address}`);
   console.log(`NEXT_PUBLIC_GAME_STATE_ADDRESS=${gameState.address}`);
-  console.log(`NEXT_PUBLIC_DECK_MANAGER_ADDRESS=${deckManager.address}`);
   console.log(`NEXT_PUBLIC_CHAIN_ID=${hre.network.config.chainId}`);
   console.log("==================================================");
   console.log("\nVerify on Celoscan:");
@@ -154,9 +174,6 @@ async function main() {
   );
   console.log(
     `  pnpm --filter hardhat verify:${network} ${gameState.address}`
-  );
-  console.log(
-    `  pnpm --filter hardhat verify:${network} ${deckManager.address} ${nftCards.address}`
   );
 }
 

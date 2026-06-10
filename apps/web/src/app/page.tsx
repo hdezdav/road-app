@@ -128,7 +128,7 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="mt-8 text-5xl font-extrabold leading-tight tracking-tight text-slate-800 md:text-7xl"
+              className="mt-8 text-3xl font-extrabold leading-tight tracking-tight text-slate-800 sm:text-5xl md:text-7xl"
             >
               Bienvenido al mundo Web3.<br />
               <span className="bg-gradient-to-r from-indigo-600 to-indigo-800 bg-clip-text text-transparent">Aquí están las reglas.</span>
@@ -138,7 +138,7 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="mx-auto mt-6 max-w-2xl text-xl text-slate-600"
+              className="mx-auto mt-6 max-w-2xl text-lg text-slate-600 sm:text-xl"
             >
               Antes de abrir tu primer sobre, descubre cómo se conectan los conceptos del juego con la tecnología real.
             </motion.p>
@@ -147,7 +147,7 @@ export default function LandingPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 1, duration: 1 }}
-              className="absolute bottom-12 flex flex-col items-center gap-2"
+              className="absolute bottom-8 flex flex-col items-center gap-2 sm:bottom-12"
             >
               <span className="text-sm font-medium text-slate-500 uppercase tracking-widest">Haz scroll para aprender</span>
               <motion.div
@@ -163,22 +163,22 @@ export default function LandingPage() {
           {tutorialSteps.map((step) => (
             <section 
               key={step.title}
-              className="flex h-[calc(100vh-64px)] w-full shrink-0 snap-center flex-col items-center justify-center px-6 py-20 text-center"
+              className="flex h-[calc(100vh-64px)] w-full shrink-0 snap-center flex-col items-center justify-center px-4 py-16 text-center sm:px-6 sm:py-20"
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.9, y: 50 }}
                 whileInView={{ opacity: 1, scale: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.6 }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
-                className={`flex max-w-3xl flex-col items-center rounded-[2rem] border ${step.borderColor} bg-white/60 p-12 shadow-xl backdrop-blur-md`}
+                className={`flex max-w-3xl flex-col items-center rounded-[2rem] border ${step.borderColor} bg-white/60 p-6 shadow-xl backdrop-blur-md sm:p-12`}
               >
-                <div className={`mb-8 flex h-24 w-24 items-center justify-center rounded-3xl ${step.bg}`}>
-                  <step.icon className={`h-12 w-12 ${step.color}`} />
+                <div className={`mb-6 flex h-20 w-20 items-center justify-center rounded-3xl ${step.bg} sm:mb-8 sm:h-24 sm:w-24`}>
+                  <step.icon className={`h-10 w-10 ${step.color} sm:h-12 sm:w-12`} />
                 </div>
                 
-                <h2 className="text-4xl font-extrabold text-slate-800 md:text-6xl">{step.title}</h2>
-                <p className="mt-2 text-lg font-bold uppercase tracking-widest text-indigo-600">{step.subtitle}</p>
-                <p className="mt-8 text-xl leading-relaxed text-slate-600 md:text-2xl">
+                <h2 className="text-3xl font-extrabold text-slate-800 sm:text-4xl md:text-6xl">{step.title}</h2>
+                <p className="mt-2 text-base font-bold uppercase tracking-widest text-indigo-600 sm:text-lg">{step.subtitle}</p>
+                <p className="mt-6 text-lg leading-relaxed text-slate-600 sm:mt-8 sm:text-xl md:text-2xl">
                   {step.text}
                 </p>
               </motion.div>
@@ -193,17 +193,17 @@ export default function LandingPage() {
               viewport={{ once: true, amount: 0.6 }}
               className="flex max-w-2xl flex-col items-center"
             >
-              <Trophy className="mb-6 h-20 w-20 text-yellow-500 drop-shadow-md" />
-              <h2 className="text-5xl font-extrabold text-slate-800 md:text-6xl">Todo listo.</h2>
-              <p className="mt-6 text-2xl text-slate-600">
+              <Trophy className="mb-6 h-16 w-16 text-yellow-500 drop-shadow-md sm:h-20 sm:w-20" />
+              <h2 className="text-4xl font-extrabold text-slate-800 sm:text-5xl md:text-6xl">Todo listo.</h2>
+              <p className="mt-6 text-xl text-slate-600 sm:text-2xl">
                 Ya conoces las reglas básicas. Es momento de armar tu mazo y prepararte para el combate.
               </p>
 
-              <div className="mt-12">
+              <div className="mt-10 w-full sm:mt-12 sm:w-auto">
                 <Button
                   size="lg"
                   onClick={cta}
-                  className="group relative inline-flex h-16 items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-indigo-500 to-indigo-700 px-12 text-xl font-bold text-white shadow-xl shadow-indigo-500/30 transition-all hover:scale-105 hover:bg-indigo-600"
+                  className="group relative inline-flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-indigo-500 to-indigo-700 px-8 text-lg font-bold text-white shadow-xl shadow-indigo-500/30 transition-all hover:scale-105 hover:bg-indigo-600 sm:h-16 sm:w-auto sm:px-12 sm:text-xl"
                 >
                   Abrir mi primer sobre <ArrowRight className="h-6 w-6 transition-transform group-hover:translate-x-1" />
                 </Button>
@@ -219,7 +219,7 @@ export default function LandingPage() {
            ========================================================= */
         <div className="flex w-full flex-col">
           {/* HERO */}
-          <section className="relative mx-auto flex min-h-[calc(100vh-64px)] max-w-6xl flex-col items-center justify-center gap-12 px-6 py-12 lg:flex-row">
+          <section className="relative mx-auto flex min-h-[calc(100vh-64px)] max-w-6xl flex-col items-center justify-center gap-8 px-6 py-12 sm:gap-12 lg:flex-row">
             <div className="flex-1 text-center lg:text-left">
               <motion.span
                 initial={{ opacity: 0, y: 16 }}
@@ -262,7 +262,7 @@ export default function LandingPage() {
                   size="lg"
                   onClick={cta}
                   disabled={loading}
-                  className="h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 rounded-xl"
+                  className="h-12 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 rounded-xl sm:w-auto"
                 >
                   {isMiniPay
                     ? "Abrir mi primer sobre"
@@ -274,7 +274,7 @@ export default function LandingPage() {
                   variant="outline"
                   size="lg"
                   onClick={() => router.push("/cards")}
-                  className="h-12 gap-2 bg-white/60 px-6 text-base backdrop-blur rounded-xl border border-slate-200"
+                  className="h-12 w-full gap-2 bg-white/60 px-6 text-base backdrop-blur rounded-xl border border-slate-200 sm:w-auto"
                 >
                   Ver cartas <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -285,29 +285,34 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="relative flex h-[26rem] flex-1 items-center justify-center">
-              {fanCards.map((card, i) => (
-                <motion.div
-                  key={card.name}
-                  className="absolute"
-                  initial={{ opacity: 0, y: 80, rotate: 0 }}
-                  animate={{
-                    opacity: 1,
-                    y: fanLayout[i].y,
-                    x: fanLayout[i].x,
-                    rotate: fanLayout[i].rotate,
-                  }}
-                  transition={{
-                    delay: 0.3 + i * 0.15,
-                    type: "spring",
-                    stiffness: 120,
-                    damping: 14,
-                  }}
-                  style={{ zIndex: fanLayout[i].z }}
-                >
-                  <GameCard card={card} />
-                </motion.div>
-              ))}
+            <div className="relative flex h-[20rem] w-full flex-1 items-center justify-center sm:h-[26rem]">
+              {/* El abanico usa offsets en píxeles fijos (±150px). En mobile
+                  escalamos todo el contenedor para que las cartas no se
+                  desborden ni se solapen en pantallas angostas (<360px). */}
+              <div className="relative flex h-full w-full origin-center scale-[0.62] items-center justify-center sm:scale-90 lg:scale-100">
+                {fanCards.map((card, i) => (
+                  <motion.div
+                    key={card.name}
+                    className="absolute"
+                    initial={{ opacity: 0, y: 80, rotate: 0 }}
+                    animate={{
+                      opacity: 1,
+                      y: fanLayout[i].y,
+                      x: fanLayout[i].x,
+                      rotate: fanLayout[i].rotate,
+                    }}
+                    transition={{
+                      delay: 0.3 + i * 0.15,
+                      type: "spring",
+                      stiffness: 120,
+                      damping: 14,
+                    }}
+                    style={{ zIndex: fanLayout[i].z }}
+                  >
+                    <GameCard card={card} />
+                  </motion.div>
+                ))}
+              </div>
             </div>
           </section>
 
