@@ -20,7 +20,7 @@
   // `compatibility_date` and `compatibility_flags`).
   // ----------------------------------------------------------------------------
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "road-app-web",
+  "name": "road-app",
   "main": "apps/web/.open-next/worker.js",
   "compatibility_date": "2025-01-01",
   "compatibility_flags": ["nodejs_compat"],
