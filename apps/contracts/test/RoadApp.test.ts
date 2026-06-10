@@ -150,6 +150,56 @@ describe("Road App contracts", function () {
       // 1 boss card + 1 reward = 2 minted
       expect(await nft.read.balanceOf([alice.account.address])).to.equal(2n);
     });
+
+    it("verifySeedPhraseBackup works in OPEN mode without signature", async () => {
+      // Regression: en mainnet desplegamos con trustedSigner = 0x0 (modo OPEN).
+      // Antes este path revertía con TrustedSignerNotSet(), rompiendo la Fase 2.
+      const { game, alice } = await deployFixture();
+      const aliceGame = await hre.viem.getContractAt("RoadAppGameState", game.address, { client: { wallet: alice } });
+      await aliceGame.write.registerPlayer();
+      await aliceGame.write.recordBossDefeat([1n, 0n, "0x"]);
+
+      // Now in phase 2; mark seed backup in OPEN mode (deadline 0, sig "0x").
+      await aliceGame.write.verifySeedPhraseBackup([0n, "0x"]);
+      const state = await game.read.getPlayerState([alice.account.address]);
+      expect(state.hasSeedPhraseBackedUp).to.equal(true);
+
+      // And now phase 2 boss defeat works end-to-end.
+      await aliceGame.write.recordBossDefeat([2n, 0n, "0x"]);
+      const stateAfter = await game.read.getPlayerState([alice.account.address]);
+      expect(stateAfter.hasDefeatedPhase2).to.equal(true);
+      expect(Number(stateAfter.currentPhase)).to.equal(3);
+    });
+
+    it("verifySeedPhraseBackup reverts if player is still in phase 1", async () => {
+      const { game, alice } = await deployFixture();
+      const aliceGame = await hre.viem.getContractAt("RoadAppGameState", game.address, { client: { wallet: alice } });
+      await aliceGame.write.registerPlayer(); // phase 1
+      await expect(aliceGame.write.verifySeedPhraseBackup([0n, "0x"])).to.be.rejected;
+    });
+
+    it("completes the full Road 1 -> 2 -> 3 -> COMPLETED journey in OPEN mode", async () => {
+      const { game, nft, alice } = await deployFixture();
+      const aliceGame = await hre.viem.getContractAt("RoadAppGameState", game.address, { client: { wallet: alice } });
+      await aliceGame.write.registerPlayer();
+
+      // Road 1
+      await aliceGame.write.recordBossDefeat([1n, 0n, "0x"]);
+      // Road 2 requires seed backup
+      await aliceGame.write.verifySeedPhraseBackup([0n, "0x"]);
+      await aliceGame.write.recordBossDefeat([2n, 0n, "0x"]);
+      // Road 3
+      await aliceGame.write.recordBossDefeat([3n, 0n, "0x"]);
+
+      const state = await game.read.getPlayerState([alice.account.address]);
+      expect(state.hasDefeatedPhase1).to.equal(true);
+      expect(state.hasDefeatedPhase2).to.equal(true);
+      expect(state.hasDefeatedPhase3).to.equal(true);
+      expect(Number(state.currentPhase)).to.equal(4); // COMPLETED_PHASE
+
+      // 3 boss cards + 3 reward cards = 6 (no starter pack here)
+      expect(await nft.read.balanceOf([alice.account.address])).to.equal(6n);
+    });
   });
 
   // ---------------- EIP-712 anti-cheat ----------------

@@ -1,0 +1,33 @@
+{
+  "name": "road-app",
+  "version": "0.1.0",
+  "description": "a BlockChain Education Project para MiniPay",
+  "private": true,
+  "scripts": {
+    "build": "turbo build --filter=web",
+    "build:cloudflare": "pnpm --filter web run build:cloudflare",
+    "deploy": "pnpm --filter web run deploy",
+    "preview": "pnpm --filter web run preview",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "clean": "turbo clean",
+    "type-check": "turbo type-check",
+    "contracts:compile": "turbo run compile --filter=hardhat",
+    "contracts:test": "turbo run test --filter=hardhat",
+    "contracts:deploy": "turbo run deploy --filter=hardhat",
+    "contracts:deploy:celo-sepolia": "turbo run deploy:celo-sepolia --filter=hardhat",
+    "contracts:deploy:celo": "turbo run deploy:celo --filter=hardhat"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.42",
+    "browserslist": "^4.28.2",
+    "caniuse-lite": "^1.0.30001797",
+    "turbo": "^1.13.4",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@8.10.0",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

@@ -55,6 +55,18 @@ contract RoadAppNFTCards is ERC721Enumerable, Ownable2Step {
     mapping(address => bool) public authorizedMinters;
     mapping(address => bool) public hasClaimedStarter;
 
+    /// @notice Tracks whether a player already received the reward pack for a given
+    /// road / phase (phase = 1, 2, 3). Defensa en profundidad: el flujo principal en
+    /// `RoadAppGameState.recordBossDefeat` ya impide reclamar dos veces porque
+    /// `currentPhase != phase` en el segundo intento, pero exponemos también esta
+    /// invariante a nivel del contrato de NFTs para que un futuro `setMinter` con un
+    /// nuevo orquestador no pueda mintear sobres duplicados por error.
+    mapping(address => mapping(uint256 => bool)) public hasClaimedRewardPack;
+    /// @notice Tracks whether a player already received the boss-defeat NFT for a
+    /// given bossId (8 = duplicator, 9 = ransomware, 10 = high-gas). Misma idea.
+    mapping(address => mapping(uint256 => bool)) public hasClaimedBoss;
+
+
     event CardMinted(
         address indexed owner,
         uint256 indexed tokenId,
@@ -72,6 +84,8 @@ contract RoadAppNFTCards is ERC721Enumerable, Ownable2Step {
     error InvalidPhase(uint256 phase);
     error CardsAreSoulbound();
     error UnknownCard(uint256 cardCatalogId);
+    error RewardPackAlreadyClaimed(address player, uint256 phase);
+    error BossAlreadyClaimed(address player, uint256 bossId);
 
     modifier onlyMinter() {
         if (!authorizedMinters[msg.sender] && msg.sender != owner()) revert NotAuthorizedMinter();
@@ -137,27 +151,45 @@ contract RoadAppNFTCards is ERC721Enumerable, Ownable2Step {
         emit StarterClaimed(to);
     }
 
+    /**
+     * @dev Mints the reward pack tied to a completed road / phase. Idempotente:
+     *      si el jugador ya reclamó el sobre de esa fase la llamada revierte con
+     *      `RewardPackAlreadyClaimed(player, phase)`. Esto garantiza el invariante
+     *      "Cada sobre solamente puede reclamarse una vez" pedido en la spec.
+     */
     function mintRewardPack(address to, uint256 phase) external onlyMinter {
+        if (phase < 1 || phase > 3) revert InvalidPhase(phase);
+        if (hasClaimedRewardPack[to][phase]) revert RewardPackAlreadyClaimed(to, phase);
+        hasClaimedRewardPack[to][phase] = true;
+
         if (phase == 1) {
             _mintCardInternal(to, 2, 0, 90);   // Frase Semilla Física
         } else if (phase == 2) {
             _mintCardInternal(to, 5, 60, 10);  // Firma Digital
-        } else if (phase == 3) {
-            _mintCardInternal(to, 7, 70, 40);  // Velocidad de Celo / Plumo
         } else {
-            revert InvalidPhase(phase);
+            // phase == 3 (validated above)
+            _mintCardInternal(to, 7, 70, 40);  // Velocidad de Celo / Plumo
         }
     }
 
+    /**
+     * @dev Mints the boss-defeat trophy card. Idempotente: si el jugador ya tiene
+     *      ese boss revierte con `BossAlreadyClaimed(player, bossId)`. Combinado
+     *      con `RoadAppGameState.recordBossDefeat`, esto impide que un orquestador
+     *      mal configurado mintee dos veces el mismo trofeo al mismo jugador.
+     */
     function mintBossCard(address to, uint256 bossId) external onlyMinter {
+        if (bossId < 8 || bossId > 10) revert InvalidBossId(bossId);
+        if (hasClaimedBoss[to][bossId]) revert BossAlreadyClaimed(to, bossId);
+        hasClaimedBoss[to][bossId] = true;
+
         if (bossId == 8) {
             _mintCardInternal(to, 8, 40, 100);  // Hacker Duplicador
         } else if (bossId == 9) {
             _mintCardInternal(to, 9, 60, 150);  // Ransomware Interceptor
-        } else if (bossId == 10) {
-            _mintCardInternal(to, 10, 80, 200); // Monstruo del Gas Alto
         } else {
-            revert InvalidBossId(bossId);
+            // bossId == 10 (validated above)
+            _mintCardInternal(to, 10, 80, 200); // Monstruo del Gas Alto
         }
     }
 

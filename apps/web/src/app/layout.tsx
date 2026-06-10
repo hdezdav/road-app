@@ -31,6 +31,14 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+  // Talent Protocol (talentapp.xyz) domain ownership verification. Required
+  // for the project to claim its Builder Score / Talent profile. The token
+  // value is unique per project and was issued by Talent Protocol; rotating
+  // it requires re-verifying ownership of the domain.
+  other: {
+    'talentapp:project_verification':
+      '796bb2ef87b1084ba83f13810fa1fab3a8cb70dbdc744c9bf9b9a6ee03babf48db2ebb361f06f5b8e1af2c33305dfd61caf5ab0eaa9a9d37bf5c6f54d5ee2143',
+  },
 };
 
 

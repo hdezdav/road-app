@@ -29,6 +29,9 @@
   // are a known cause of generic 500 "Internal Server Error" responses.
   "compatibility_date": "2025-09-01",
   "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "NEXT_PRIVATE_MINIMAL_MODE": "1"
+  },
   "assets": {
     "directory": "apps/web/.open-next/assets",
     "binding": "ASSETS"

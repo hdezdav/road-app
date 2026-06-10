@@ -181,10 +181,14 @@ export default function BattlePage() {
   const handleSeedBackup = async () => {
     setBackingUp(true);
     try {
+      // verifySeedPhraseBackup(uint256 deadline, bytes signature)
+      // En modo OPEN (sin trustedSigner) los parámetros son ignorados, pero la
+      // ABI exige 2 valores para que el encoding coincida.
       const tx = await writeContractAsync({
         address: CONTRACT_ADDRESSES.GAME_STATE,
         abi: GAME_STATE_ABI,
         functionName: "verifySeedPhraseBackup",
+        args: [0n, "0x"],
       });
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash: tx });
@@ -202,12 +206,14 @@ export default function BattlePage() {
   const recordOnChainVictory = useCallback(async () => {
     setVictoryError("");
     try {
-      // We pass "0x" (empty bytes) signature fallback since signature verification is only enforced on-chain when trustedSigner is configured
+      // recordBossDefeat(uint256 phase, uint256 deadline, bytes signature)
+      // En modo OPEN (sin trustedSigner configurado), deadline y signature son ignorados
+      // pero deben enviarse para que la codificación ABI coincida con la firma del contrato.
       const tx = await writeContractAsync({
         address: CONTRACT_ADDRESSES.GAME_STATE,
         abi: GAME_STATE_ABI,
         functionName: "recordBossDefeat",
-        args: [BigInt(currentPhase), "0x"],
+        args: [BigInt(currentPhase), 0n, "0x"],
       });
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash: tx });
@@ -217,7 +223,15 @@ export default function BattlePage() {
       setPhase(PHASE.POST);
     } catch (err: any) {
       console.error(err);
-      setVictoryError(err.message || "Error al emitir transacción.");
+      const raw = (err?.shortMessage || err?.message || "").toString();
+      const isUserReject =
+        err?.code === 4001 ||
+        /user rejected|user denied|rejected the request/i.test(raw);
+      setVictoryError(
+        isUserReject
+          ? "Cancelaste la firma. Puedes reintentar el registro de tu victoria."
+          : raw || "Error al emitir transacción."
+      );
     }
   }, [currentPhase, writeContractAsync, publicClient, refetch]);
 

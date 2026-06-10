@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowRight, Loader2, Sparkles, Trophy, Gift, ExternalLink } from "lucide-react";
-import { useAccount, useWriteContract, usePublicClient } from "wagmi";
+import { useAccount, useWriteContract, usePublicClient, useReadContract } from "wagmi";
 import { decodeEventLog } from "viem";
 import { NFT_CARDS_ABI, GAME_STATE_ABI, CONTRACT_ADDRESSES, SUPPORTED_CHAIN_ID } from "@/lib/contracts";
 import { watchNFTsInWallet, getNftExplorerUrl } from "@/lib/wallet-assets";
@@ -38,6 +38,28 @@ export default function OpenPackPage() {
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
 
+  // Lectura on-chain: ¿el usuario ya reclamó el starter pack?
+  // Esto evita ofrecer (y revertir) el mint del starter cuando el contrato ya
+  // lo bloqueó vía `hasClaimedStarter[to]`.
+  const { data: hasClaimedStarter } = useReadContract({
+    address: CONTRACT_ADDRESSES.NFT_CARDS,
+    abi: NFT_CARDS_ABI,
+    functionName: "hasClaimedStarter",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address },
+  }) as { data: boolean | undefined };
+
+  // Lectura on-chain: ¿está registrado en GameState? (`isRegistered(address)`)
+  // Permite saltarse el paso 2 (registerPlayer) si ya está registrado y así
+  // no provocar el revert `AlreadyRegistered()` durante eth_estimateGas.
+  const { data: isAlreadyRegistered } = useReadContract({
+    address: CONTRACT_ADDRESSES.GAME_STATE,
+    abi: GAME_STATE_ABI,
+    functionName: "isRegistered",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address },
+  }) as { data: boolean | undefined };
+
   // Determine what pack the user should open
   useEffect(() => {
     if (!isConnected || !address) {
@@ -45,8 +67,12 @@ export default function OpenPackPage() {
       return;
     }
 
-    // 1. Starter Pack
-    if (currentPhase === 0 || ownedCardIds.length === 0) {
+    // 1. Starter Pack — solo si NO ha sido reclamado on-chain todavía.
+    // Antes usábamos `ownedCardIds.length === 0` como fallback, pero eso
+    // provocaba que un usuario ya registrado (con cartas aún cargando) viera
+    // de nuevo el starter y disparara `StarterAlreadyClaimed`.
+    const needsStarter = hasClaimedStarter === false || (currentPhase === 0 && !hasClaimedStarter);
+    if (needsStarter) {
       setPackType("starter");
       setActivePackCards([
         heroCards.find((c) => c.tokenId === 1),
@@ -95,7 +121,16 @@ export default function OpenPackPage() {
     }
 
     setPackType("none");
-  }, [isConnected, address, currentPhase, hasDefeatedPhase1, hasDefeatedPhase2, hasDefeatedPhase3, ownedCardIds]);
+  }, [
+    isConnected,
+    address,
+    currentPhase,
+    hasDefeatedPhase1,
+    hasDefeatedPhase2,
+    hasDefeatedPhase3,
+    ownedCardIds,
+    hasClaimedStarter,
+  ]);
 
   const handleOpen = async () => {
     setErrorText("");
@@ -106,13 +141,18 @@ export default function OpenPackPage() {
       try {
         // Edge case: el usuario YA tiene NFTs pero quedó sin registrar en
         // GameState (ej. rechazó la 2da firma en un intento anterior).
-        // mintStarterPack revertiría con AlreadyMinted; saltamos directo al
-        // paso 2 ("solo registrar") para no pedirle otra firma + network fee
-        // (CIP-64) por algo que ya pagó.
-        const alreadyHasCards = ownedCardIds.length > 0;
+        // mintStarterPack revertiría con StarterAlreadyClaimed; saltamos
+        // directo al paso 2 ("solo registrar") para no pedirle otra firma +
+        // network fee (CIP-64) por algo que ya pagó.
+        //
+        // Preferimos la lectura on-chain `hasClaimedStarter` (autoridad real)
+        // sobre `ownedCardIds.length` porque las cartas podrían no estar
+        // cargadas aún en el contexto cuando se hace clic.
+        const alreadyClaimedStarter =
+          hasClaimedStarter === true || ownedCardIds.length > 0;
         const mintedTokenIds: bigint[] = [];
 
-        if (!alreadyHasCards) {
+        if (!alreadyClaimedStarter) {
           // Step 1: Mint Starter Pack
           const mintTx = await writeContractAsync({
             address: CONTRACT_ADDRESSES.NFT_CARDS,
@@ -144,40 +184,62 @@ export default function OpenPackPage() {
           await new Promise((resolve) => setTimeout(resolve, 2000));
         }
 
-        // Step 2: Register in GameState (siempre se ejecuta, ya sea tras
-        // mintear o tras detectar que las cartas ya existían).
+        // Step 2: Register in GameState — solo si el contrato confirma que
+        // NO está registrado aún. Si ya está registrado, `registerPlayer`
+        // revertiría con `AlreadyRegistered()` durante `eth_estimateGas`
+        // (este era el error: "The contract function registerPlayer reverted").
         setTxStep(2);
-        const txOptions: { nonce?: number } = {};
-        if (publicClient && address) {
+
+        // Re-verificamos on-chain por si `isAlreadyRegistered` (hook) aún no
+        // reflejaba el estado más fresco al momento del clic.
+        let needsRegister = isAlreadyRegistered !== true;
+        if (publicClient && address && needsRegister) {
           try {
-            // Retrieve nonce with 'pending' blockTag to count mempool/unmined transactions
-            const nextNonce = await publicClient.getTransactionCount({
-              address,
-              blockTag: 'pending',
+            const onchainRegistered = await publicClient.readContract({
+              address: CONTRACT_ADDRESSES.GAME_STATE,
+              abi: GAME_STATE_ABI,
+              functionName: "isRegistered",
+              args: [address],
             });
-            txOptions.nonce = nextNonce;
+            needsRegister = !onchainRegistered;
           } catch (e) {
-            console.warn("Error resolving pending nonce:", e);
-            try {
-              const nextNonceLatest = await publicClient.getTransactionCount({
-                address,
-                blockTag: 'latest',
-              });
-              txOptions.nonce = nextNonceLatest;
-            } catch (e2) {
-              console.warn("Fallback nonce failed:", e2);
-            }
+            console.warn("Could not double-check isRegistered:", e);
           }
         }
 
-        const registerTx = await writeContractAsync({
-          address: CONTRACT_ADDRESSES.GAME_STATE,
-          abi: GAME_STATE_ABI,
-          functionName: 'registerPlayer',
-          ...txOptions,
-        });
-        if (publicClient) {
-          await publicClient.waitForTransactionReceipt({ hash: registerTx });
+        if (needsRegister) {
+          const txOptions: { nonce?: number } = {};
+          if (publicClient && address) {
+            try {
+              // Retrieve nonce with 'pending' blockTag to count mempool/unmined transactions
+              const nextNonce = await publicClient.getTransactionCount({
+                address,
+                blockTag: 'pending',
+              });
+              txOptions.nonce = nextNonce;
+            } catch (e) {
+              console.warn("Error resolving pending nonce:", e);
+              try {
+                const nextNonceLatest = await publicClient.getTransactionCount({
+                  address,
+                  blockTag: 'latest',
+                });
+                txOptions.nonce = nextNonceLatest;
+              } catch (e2) {
+                console.warn("Fallback nonce failed:", e2);
+              }
+            }
+          }
+
+          const registerTx = await writeContractAsync({
+            address: CONTRACT_ADDRESSES.GAME_STATE,
+            abi: GAME_STATE_ABI,
+            functionName: 'registerPlayer',
+            ...txOptions,
+          });
+          if (publicClient) {
+            await publicClient.waitForTransactionReceipt({ hash: registerTx });
+          }
         }
 
         await refetch();

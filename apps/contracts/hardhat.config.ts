@@ -40,6 +40,12 @@ const config: HardhatUserConfig = {
       url: process.env.CELO_RPC_URL || "https://forno.celo.org",
       accounts: PK ? [PK] : [],
       chainId: 42220,
+      // Celo (OP-stack L2) acepta gasPrice fijo. Sin esto, viem pide
+      // `eth_maxPriorityFeePerGas` y el sequencer a veces devuelve picos de
+      // 250+ gwei que vacían la cuenta del deployer. 25 gwei sobra para que
+      // el bloque siguiente nos incluya y mantiene el costo del despliegue
+      // completo por debajo de 0.2 CELO.
+      gasPrice: Number(process.env.CELO_GAS_PRICE_WEI || 25_000_000_000), // 25 gwei
     },
     // Local development (hardhat node).
     localhost: {

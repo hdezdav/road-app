@@ -1,3 +1,3 @@
-export const production = {};
-export const development = {};
+export const production = {"NEXT_PUBLIC_CHAIN_ID":"42220","NEXT_PUBLIC_NFT_CARDS_ADDRESS":"0x3e3adfd56091511e2e572e40cbb424d3bda54ca6","NEXT_PUBLIC_GAME_STATE_ADDRESS":"0xc977c3c1c48c0a24eff78c866f7fed7bfe5a1ff5","NEXT_PUBLIC_DECK_MANAGER_ADDRESS":"0x0233dad6871a563e052cc3a3681264f8e0ce37cb","CELO_RPC_URL":"https://forno.celo.org"};
+export const development = {"NEXT_PUBLIC_CHAIN_ID":"42220","NEXT_PUBLIC_NFT_CARDS_ADDRESS":"0x3e3adfd56091511e2e572e40cbb424d3bda54ca6","NEXT_PUBLIC_GAME_STATE_ADDRESS":"0xc977c3c1c48c0a24eff78c866f7fed7bfe5a1ff5","NEXT_PUBLIC_DECK_MANAGER_ADDRESS":"0x0233dad6871a563e052cc3a3681264f8e0ce37cb","CELO_RPC_URL":"https://forno.celo.org"};
 export const test = {};

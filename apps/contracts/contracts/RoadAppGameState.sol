@@ -143,24 +143,41 @@ contract RoadAppGameState is Ownable2Step, EIP712 {
     // ---------------------------------------------------------------
 
     /**
-     * @dev Mark the player's seed-phrase backup as verified. Requires a signature from
-     *      the trustedSigner certifying the off-chain quiz/proof was completed.
+     * @dev Mark the player's seed-phrase backup as verified.
+     *
+     *  Two modes, gated by `trustedSigner`:
+     *  - OPEN mode (trustedSigner == 0): cualquier jugador en fase >= 2 puede
+     *    marcar el respaldo. Esto desbloquea el flow educativo en mainnet sin
+     *    necesidad de tener un backend signer corriendo (útil para demos y para
+     *    el primer despliegue). Antes esto revertía con `TrustedSignerNotSet()`,
+     *    rompiendo la Fase 2 completa: el jefe `Ransomware Interceptor` requiere
+     *    `hasSeedPhraseBackedUp == true` y por lo tanto era imposible avanzar.
+     *  - SIGNED mode (trustedSigner != 0): se exige una firma EIP-712 fresca y
+     *    no expirada, con el nonce del jugador, certificando que el quiz
+     *    off-chain fue completado. Esto es lo que se usa en producción "real".
+     *
+     *  En OPEN mode `deadline` y `signature` se ignoran (pero la ABI sigue
+     *  exigiendo los 2 parámetros para que la codificación coincida en el cliente).
      */
     function verifySeedPhraseBackup(uint256 deadline, bytes calldata signature) external {
-        if (trustedSigner == address(0)) revert TrustedSignerNotSet();
-        if (block.timestamp > deadline) revert SignatureExpired();
         PlayerState storage state = players[msg.sender];
         if (state.currentPhase < 2) revert NotInThisPhase(2, state.currentPhase);
 
-        bytes32 structHash = keccak256(abi.encode(
-            SEED_BACKUP_TYPEHASH,
-            msg.sender,
-            nonces[msg.sender]++,
-            deadline
-        ));
-        bytes32 digest = _hashTypedDataV4(structHash);
-        address signer = digest.recover(signature);
-        if (signer != trustedSigner) revert InvalidSignature();
+        if (trustedSigner != address(0)) {
+            if (block.timestamp > deadline) revert SignatureExpired();
+
+            bytes32 structHash = keccak256(abi.encode(
+                SEED_BACKUP_TYPEHASH,
+                msg.sender,
+                nonces[msg.sender]++,
+                deadline
+            ));
+            bytes32 digest = _hashTypedDataV4(structHash);
+            address signer = digest.recover(signature);
+            if (signer != trustedSigner) revert InvalidSignature();
+        }
+        // En OPEN mode no consumimos `nonces[msg.sender]`: no hay riesgo de
+        // replay (la operación es idempotente: una vez `true` queda `true`).
 
         state.hasSeedPhraseBackedUp = true;
         emit SeedPhraseBackedUp(msg.sender);
