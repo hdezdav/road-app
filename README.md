@@ -91,24 +91,36 @@ This is a monorepo managed by Turborepo:
 ### Cloudflare Workers (frontend deployment)
 
 The web app is deployed to **Cloudflare Workers** via [`@opennextjs/cloudflare`](https://opennext.js.org/cloudflare).
-Because this is a Turborepo monorepo, Cloudflare's auto-detection cannot find the project
-from the root by itself. The root `package.json` exposes proxy scripts that forward to
-`apps/web`, so the standard Cloudflare build settings work out of the box:
+
+Because this is a Turborepo monorepo, Cloudflare Workers Builds runs `wrangler deploy`
+from the **repo root** and would normally fail with
+`"Wrangler application detection logic has been run in the root of a workspace"`.
+To make it work transparently we keep **two** Wrangler configs:
+
+- `apps/web/wrangler.jsonc` — used for local dev (`pnpm preview`, `pnpm deploy`).
+- `wrangler.jsonc` (repo root) — used by Cloudflare's CI. It just points `main` and
+  `assets` to the OpenNext output inside `apps/web/.open-next/`, so `wrangler deploy`
+  finds a valid project at the root.
+
+Recommended Cloudflare Workers build settings:
 
 | Setting | Value |
 |---|---|
 | **Root directory** | `/` (repo root) |
-| **Build command** | `pnpm run build:cloudflare` |
-| **Deploy command** | `pnpm run deploy` |
 | **Install command** | `pnpm install --frozen-lockfile` |
+| **Build command** | `pnpm run build:cloudflare` |
+| **Deploy command** | `npx wrangler deploy` *(or leave blank — Cloudflare's default)* |
 
 Locally you can run:
 
 ```bash
-pnpm build:cloudflare   # builds apps/web with OpenNext
-pnpm preview            # wrangler dev (local Worker preview)
+pnpm build:cloudflare   # builds apps/web with OpenNext into apps/web/.open-next/
+pnpm preview            # wrangler dev (local Worker preview, uses apps/web/wrangler.jsonc)
 pnpm deploy             # publishes to Cloudflare Workers
 ```
+
+> ⚠️ If you change `name`, `compatibility_date` or `compatibility_flags` in
+> `apps/web/wrangler.jsonc`, mirror the change in the root `wrangler.jsonc`.
 
 ---
 

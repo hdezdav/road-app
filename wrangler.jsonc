@@ -1,0 +1,31 @@
+{
+  // ----------------------------------------------------------------------------
+  // Root-level Wrangler config for Cloudflare Workers Builds.
+  //
+  // Why this file lives at the repo root (not just in apps/web):
+  // ------------------------------------------------------------
+  // Cloudflare Workers' build pipeline auto-runs `wrangler deploy` from the
+  // repository root. In a Turborepo monorepo this fails with:
+  //
+  //   "The Wrangler application detection logic has been run in the root of a
+  //    workspace instead of targeting a specific project."
+  //
+  // This config makes the root a valid Wrangler project that simply points to
+  // the artifacts produced by `apps/web` (OpenNext output). The actual build
+  // step is `pnpm run build:cloudflare`, which delegates to
+  // `pnpm --filter web run build:cloudflare` (see root package.json) and emits
+  // `apps/web/.open-next/worker.js` + `apps/web/.open-next/assets`.
+  //
+  // Keep this file in sync with apps/web/wrangler.jsonc (same `name`,
+  // `compatibility_date` and `compatibility_flags`).
+  // ----------------------------------------------------------------------------
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "road-app-web",
+  "main": "apps/web/.open-next/worker.js",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "apps/web/.open-next/assets",
+    "binding": "ASSETS"
+  }
+}
