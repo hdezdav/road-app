@@ -234,7 +234,8 @@ export default function LandingPage() {
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="mt-6 text-4xl font-extrabold leading-[1.05] tracking-tight text-slate-800 md:text-6xl"
+                className="mt-6 text-3xl font-extrabold leading-[1.05] tracking-tight text-slate-800 xs:text-4xl md:text-6xl"
+
               >
                 Empieza a aprender{" "}
                 <span className="bg-gradient-to-r from-indigo-600 to-indigo-800 bg-clip-text text-transparent">Blockchain</span>
@@ -285,11 +286,14 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="relative flex h-[20rem] w-full flex-1 items-center justify-center sm:h-[26rem]">
+            <div className="relative flex h-[16rem] w-full flex-1 items-center justify-center overflow-hidden xs:h-[20rem] sm:h-[26rem]">
               {/* El abanico usa offsets en píxeles fijos (±150px). En mobile
                   escalamos todo el contenedor para que las cartas no se
-                  desborden ni se solapen en pantallas angostas (<360px). */}
-              <div className="relative flex h-full w-full origin-center scale-[0.62] items-center justify-center sm:scale-90 lg:scale-100">
+                  desborden ni se solapen en pantallas angostas (<360px).
+                  En MiniPay (≈360px) bajamos a 0.5 para garantizar que no haya
+                  scroll horizontal. */}
+              <div className="relative flex h-full w-full origin-center scale-[0.5] items-center justify-center xs:scale-[0.62] sm:scale-90 lg:scale-100">
+
                 {fanCards.map((card, i) => (
                   <motion.div
                     key={card.name}

@@ -67,12 +67,27 @@ export default function OpenPackPage() {
       return;
     }
 
-    // 1. Starter Pack — solo si NO ha sido reclamado on-chain todavía.
-    // Antes usábamos `ownedCardIds.length === 0` como fallback, pero eso
-    // provocaba que un usuario ya registrado (con cartas aún cargando) viera
-    // de nuevo el starter y disparara `StarterAlreadyClaimed`.
-    const needsStarter = hasClaimedStarter === false || (currentPhase === 0 && !hasClaimedStarter);
+    // 1. Starter Pack — solo si NO ha sido reclamado on-chain todavía Y el
+    // jugador aún no ha entrado en ninguna fase de combate.
+    //
+    // BUGFIX: antes la condición era `hasClaimedStarter === false || (...)`.
+    // El problema: tras derrotar al jefe de la fase 1, `recordBossDefeat`
+    // mintea el reward pack pero NO marca `hasClaimedStarter` (eso solo lo hace
+    // `mintStarterPack`). Si por timing `hasClaimedStarter` aún llegaba como
+    // `false`/`undefined`, este `return` temprano mostraba de nuevo el STARTER
+    // y nunca se llegaba a la detección de los reward packs (puntos 2-4), por
+    // lo que "el sobre de la siguiente fase nunca aparecía".
+    //
+    // Ahora exigimos además que `currentPhase <= 1`: una vez el jugador venció
+    // un jefe (currentPhase >= 2) jamás volvemos a ofrecer el starter.
+    const needsStarter =
+      currentPhase <= 1 &&
+      hasClaimedStarter !== true &&
+      !hasDefeatedPhase1 &&
+      !hasDefeatedPhase2 &&
+      !hasDefeatedPhase3;
     if (needsStarter) {
+
       setPackType("starter");
       setActivePackCards([
         heroCards.find((c) => c.tokenId === 1),

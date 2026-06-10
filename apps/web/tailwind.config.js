@@ -12,12 +12,31 @@ const config = {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
+      // En MiniPay (≈360px) un padding de 2rem (64px total) comía demasiado
+      // ancho. Usamos padding responsive: 1rem en móvil, 2rem desde lg.
+      padding: {
+        DEFAULT: "1rem",
+        sm: "1.5rem",
+        lg: "2rem",
+      },
       screens: {
         "2xl": "1400px",
       },
     },
+
+    // `xs` cubre el ancho mínimo garantizado por MiniPay (360px). Lo usamos
+    // para escalar tipografía/cartas en el WebView angosto sin afectar mobile
+    // estándar (que empieza a ser cómodo a partir de ~400px).
+    screens: {
+      xs: "400px",
+      sm: "640px",
+      md: "768px",
+      lg: "1024px",
+      xl: "1280px",
+      "2xl": "1536px",
+    },
     extend: {
+
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

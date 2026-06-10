@@ -823,31 +823,51 @@
    y la carta jugada para que no produzcan scroll horizontal ni se solapen con
    el indicador de ronda o el log. */
 @media (max-width: 420px) {
+  .battle-content {
+    padding: 12px;
+  }
+
+  .pre-battle {
+    gap: 24px;
+    padding: 24px 0;
+  }
+
+  .enemy-preview {
+    padding: 20px 14px;
+    gap: 14px;
+  }
+
+  /* La mano usa 3 cartas (≈136px c/u). Con gap mínimo caben en 360px sin
+     scroll; sólo aplicamos un leve escalado de seguridad. */
   .player-hand {
     gap: 4px;
-    transform: scale(0.82);
+    transform: scale(0.9);
     transform-origin: center bottom;
   }
 
   .play-zone__card {
-    transform: scale(0.85);
+    transform: scale(0.9);
   }
 
   .play-zone::before {
-    width: 220px;
-    height: 220px;
+    width: 200px;
+    height: 200px;
   }
 
   .damage-popup {
-    font-size: 40px;
+    font-size: 38px;
   }
 
   .damage-popup--bonus {
-    font-size: 46px;
+    font-size: 44px;
   }
 
   .enemy-preview__name {
-    font-size: 22px;
+    font-size: 20px;
+  }
+
+  .enemy-preview__desc {
+    font-size: 12px;
   }
 
   .enemy-stats {
@@ -856,10 +876,34 @@
 
   .enemy-stat {
     padding: 8px 10px;
-    min-width: 56px;
+    min-width: 52px;
   }
 
   .enemy-stat__value {
-    font-size: 20px;
+    font-size: 18px;
+  }
+
+  .health-bar-wrap {
+    width: 200px;
+  }
+
+  .btn-start-battle {
+    padding: 12px 28px;
+    font-size: 14px;
+  }
+
+  .post-battle__actions,
+  .pre-battle__actions {
+    width: 100%;
   }
 }
+
+/* Selección de cartas: en MiniPay forzamos 2 columnas explícitas para que las
+   cartas no queden gigantes ni se desborden con el `auto-fit minmax`. */
+@media (max-width: 420px) {
+  .card-selection__grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+}
+

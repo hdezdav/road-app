@@ -53,7 +53,8 @@ export default function CardsPage() {
         </motion.p>
       </div>
 
-      <div className="mx-auto mt-16 max-w-6xl">
+      <div className="mx-auto mt-10 max-w-6xl sm:mt-16">
+
         {!isConnected ? (
           <div className="flex flex-col items-center justify-center p-12 rounded-2xl border border-dashed border-slate-200 bg-white/50 backdrop-blur">
             <span className="text-4xl mb-4">🔒</span>

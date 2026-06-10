@@ -218,9 +218,20 @@ export default function BattlePage() {
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash: tx });
       }
-      await refetch();
+
+      // El RPC público de Celo (Forno) suele tardar 1-2 bloques en reflejar el
+      // nuevo estado tras minar la tx. Si hacemos un único refetch inmediato,
+      // `currentPhase` / `hasDefeatedPhaseN` / `ownedCards` quedan stale y el
+      // botón "Abrir Sobre de Recompensa" lleva a /pack sin que el reward pack
+      // o el NFT recién minteado se detecten todavía. Reintentamos con backoff.
+      for (let i = 0; i < 4; i++) {
+        await refetch();
+        await new Promise((r) => setTimeout(r, 1200));
+      }
+
       setDidWin(true);
       setPhase(PHASE.POST);
+
     } catch (err: any) {
       console.error(err);
       const raw = (err?.shortMessage || err?.message || "").toString();
