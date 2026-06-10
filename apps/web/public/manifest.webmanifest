@@ -1,0 +1,26 @@
+{
+  "name": "Road App — Aprende Web3 jugando",
+  "short_name": "Road App",
+  "description": "Mini App educativa en Celo MiniPay: aprende blockchain capturando cartas NFT por fases.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "categories": ["education", "games"],
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

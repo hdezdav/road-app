@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, ExternalLink, Swords, Gift, Trophy } from "lucide-react";
+import { Menu, Swords, Gift, Trophy, BarChart3 } from "lucide-react";
 import { useAccount } from "wagmi";
 
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ export function Navbar() {
           { name: "Combate", href: "/battle", icon: Swords }
         ]
       : []),
-    { name: "Celo Docs", href: "https://docs.celo.org", external: true },
+    { name: "Leaderboard", href: "/leaderboard", icon: BarChart3 },
   ];
 
   return (
@@ -54,15 +54,12 @@ export function Navbar() {
                   <Link
                     key={link.href}
                     href={link.href}
-                    target={link.external ? "_blank" : undefined}
-                    rel={link.external ? "noopener noreferrer" : undefined}
                     className={`flex items-center gap-2 text-base font-medium transition-colors hover:text-primary ${
                       pathname === link.href ? "text-foreground" : "text-foreground/70"
                     }`}
                   >
                     {link.icon && <link.icon className="h-4 w-4" />}
                     {link.name}
-                    {link.external && <ExternalLink className="h-4 w-4" />}
                   </Link>
                 ))}
                 <div className="mt-6 pt-6 border-t">
@@ -87,8 +84,6 @@ export function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              target={link.external ? "_blank" : undefined}
-              rel={link.external ? "noopener noreferrer" : undefined}
               className={`flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-primary ${
                 pathname === link.href
                   ? "text-foreground"
@@ -97,7 +92,6 @@ export function Navbar() {
             >
               {link.icon && <link.icon className="h-4 w-4" />}
               {link.name}
-              {link.external && <ExternalLink className="h-3 w-3" />}
             </Link>
           ))}
           

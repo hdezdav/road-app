@@ -49,7 +49,7 @@ export default function CardsPage() {
             ? ownedCards.length > 0
               ? `Tienes ${ownedCards.length} carta${ownedCards.length !== 1 ? "s" : ""} NFT en tu wallet.`
               : "Aún no tienes cartas. ¡Abre tu primer sobre para empezar!"
-            : "Conecta tu wallet para visualizar tu colección de cartas NFT reales en Celo Sepolia."}
+            : "Conecta tu wallet para visualizar tu colección de cartas NFT reales en Celo."}
         </motion.p>
       </div>
 
@@ -59,7 +59,7 @@ export default function CardsPage() {
             <span className="text-4xl mb-4">🔒</span>
             <h3 className="text-lg font-bold text-slate-800">Wallet no conectada</h3>
             <p className="text-sm text-slate-500 mt-1 max-w-xs text-center">
-              Conecta tu wallet para visualizar tu colección de cartas NFT reales en Celo Sepolia.
+              Conecta tu wallet para visualizar tu colección de cartas NFT reales en Celo.
             </p>
           </div>
         ) : ownedCards.length === 0 ? (

@@ -1,18 +1,45 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/Base64.sol";
 
-contract RoadAppNFTCards is ERC721URIStorage, Ownable {
+/**
+ * @title RoadAppNFTCards
+ * @notice ERC-721 collection of 10 educational cards for the Road App MiniPay game.
+ *
+ *  Design choices (aligned with Celopedia recommendations):
+ *  - Inherits ERC721Enumerable so `getOwnedCards` runs in O(balance) instead of O(totalSupply).
+ *    Critical for MiniPay UX where the public Forno RPC has tight `eth_call` limits.
+ *  - Soulbound: cards are non-transferable between EOAs. They can only be minted (from = 0x0)
+ *    and burned (to = 0x0). This keeps `DeckManager.validateDeck` consistent: a saved deck cannot
+ *    silently become invalid because the player sold the cards.
+ *  - Ownable2Step: protects against accidentally transferring ownership to an unreachable address.
+ *  - **Metadata 100% on-chain (data URI + base64)**: `tokenURI(tokenId)` returns a fully formed
+ *    JSON inline. This means MetaMask, MiniPay, OpenSea and Celoscan can render the card name,
+ *    description, image and attributes without depending on any IPFS gateway. `baseMetadataURI`
+ *    is still used as the prefix for the `image` field, so the user can later swap to their own
+ *    art on IPFS / Arweave / R2 by calling `setBaseMetadataURI(...)`. Until then we fall back to
+ *    a stable hosted SVG placeholder so wallets always see *something*.
+ *  - Learning-path NOT random: each tokenId belongs to a fixed `cardCatalogId` (1..10) tied to a
+ *    concept of the educational route (anti-phishing, seed phrase, L2, etc.). We never roll dice
+ *    on rarity or type, unlike open card games. This keeps the experience deterministic and
+ *    pedagogical.
+ */
+contract RoadAppNFTCards is ERC721Enumerable, Ownable2Step {
     using Strings for uint256;
 
     uint256 private _nextTokenId;
+
+    /// @dev Prefix used to build the `image` field of each token's metadata, e.g.
+    ///      `ipfs://bafy.../` + cardCatalogId + ".png". Mutable via owner so we can ship a
+    ///      placeholder at launch and upgrade to final art later without redeploying.
     string public baseMetadataURI;
 
     struct CardData {
-        uint256 cardCatalogId; // 1 to 10 corresponding to cardsCatalog
+        uint256 cardCatalogId; // 1..10, corresponds to the learning-path catalog
         uint256 attack;
         uint256 defense;
     }
@@ -28,20 +55,40 @@ contract RoadAppNFTCards is ERC721URIStorage, Ownable {
     mapping(address => bool) public authorizedMinters;
     mapping(address => bool) public hasClaimedStarter;
 
-    event CardMinted(address indexed owner, uint256 indexed tokenId, uint256 cardCatalogId);
-    event MinterStatusChanged(address minter, bool status);
-    event StarterClaimed(address player);
+    event CardMinted(
+        address indexed owner,
+        uint256 indexed tokenId,
+        uint256 indexed cardCatalogId,
+        uint256 attack,
+        uint256 defense
+    );
+    event MinterStatusChanged(address indexed minter, bool status);
+    event StarterClaimed(address indexed player);
     event BaseURIChanged(string newBaseURI);
 
+    error NotAuthorizedMinter();
+    error StarterAlreadyClaimed();
+    error InvalidBossId(uint256 bossId);
+    error InvalidPhase(uint256 phase);
+    error CardsAreSoulbound();
+    error UnknownCard(uint256 cardCatalogId);
+
     modifier onlyMinter() {
-        require(authorizedMinters[msg.sender] || msg.sender == owner(), "Not authorized to mint");
+        if (!authorizedMinters[msg.sender] && msg.sender != owner()) revert NotAuthorizedMinter();
         _;
     }
 
-    constructor(string memory _baseMetadataURI) ERC721("RoadApp Card", "ROAD") Ownable(msg.sender) {
-        _nextTokenId = 1; // Start tokenIds at 1
+    constructor(string memory _baseMetadataURI)
+        ERC721("RoadApp Card", "ROAD")
+        Ownable(msg.sender)
+    {
+        _nextTokenId = 1;
         baseMetadataURI = _baseMetadataURI;
     }
+
+    // ---------------------------------------------------------------
+    // Admin
+    // ---------------------------------------------------------------
 
     function setMinter(address minter, bool status) external onlyOwner {
         authorizedMinters[minter] = status;
@@ -53,12 +100,13 @@ contract RoadAppNFTCards is ERC721URIStorage, Ownable {
         emit BaseURIChanged(_newBaseURI);
     }
 
-    /**
-     * @dev Internal minting function that bypasses onlyMinter check for internal contract actions.
-     */
+    // ---------------------------------------------------------------
+    // Minting
+    // ---------------------------------------------------------------
+
     function _mintCardInternal(address to, uint256 cardCatalogId, uint256 attack, uint256 defense) internal returns (uint256) {
         uint256 tokenId = _nextTokenId++;
-        
+
         cards[tokenId] = CardData({
             cardCatalogId: cardCatalogId,
             attack: attack,
@@ -66,105 +114,243 @@ contract RoadAppNFTCards is ERC721URIStorage, Ownable {
         });
 
         _safeMint(to, tokenId);
-        
-        // Construct token URI dynamically based on baseMetadataURI and cardCatalogId
-        string memory tokenURIString = string(abi.encodePacked(baseMetadataURI, cardCatalogId.toString(), ".json"));
-        _setTokenURI(tokenId, tokenURIString);
 
-        emit CardMinted(to, tokenId, cardCatalogId);
+        emit CardMinted(to, tokenId, cardCatalogId, attack, defense);
         return tokenId;
     }
 
-    /**
-     * @dev Mints a new Card NFT. Only callable by owner or authorized minters.
-     */
     function mintCard(address to, uint256 cardCatalogId, uint256 attack, uint256 defense) external onlyMinter returns (uint256) {
         return _mintCardInternal(to, cardCatalogId, attack, defense);
     }
 
-    /**
-     * @dev Mint starter pack cards in order. Anyone can claim their starter pack once.
-     */
     function mintStarterPack(address to) external {
-        require(!hasClaimedStarter[to], "Starter pack already claimed");
+        require(to == msg.sender, "Can only claim your own starter");
+        if (hasClaimedStarter[to]) revert StarterAlreadyClaimed();
         hasClaimedStarter[to] = true;
 
-        // Mint starter cards:
-        // 1. Filtro Anti-Phishing (cardCatalogId 1, attack 30, defense 50)
-        _mintCardInternal(to, 1, 30, 50);
-        // 2. Canal de Capa 2 (cardCatalogId 3, attack 20, defense 20)
-        _mintCardInternal(to, 3, 20, 20);
-        // 3. Smart Contract Blindado (cardCatalogId 4, attack 45, defense 30)
-        _mintCardInternal(to, 4, 45, 30);
-        // 4. Libro Contable Inmutable (cardCatalogId 6, attack 15, defense 60)
-        _mintCardInternal(to, 6, 15, 60);
+        // Fixed learning-path starter (NOT random):
+        _mintCardInternal(to, 1, 30, 50); // Filtro Anti-Phishing
+        _mintCardInternal(to, 3, 20, 20); // Canal de Capa 2
+        _mintCardInternal(to, 4, 45, 30); // Smart Contract Blindado
+        _mintCardInternal(to, 6, 15, 60); // Libro Contable Inmutable
 
         emit StarterClaimed(to);
     }
 
-    /**
-     * @dev Mint learning path rewards upon phase completion. Only callable by minters.
-     */
     function mintRewardPack(address to, uint256 phase) external onlyMinter {
         if (phase == 1) {
-            // Frase Semilla Física (cardCatalogId 2, attack 0, defense 90)
-            _mintCardInternal(to, 2, 0, 90);
+            _mintCardInternal(to, 2, 0, 90);   // Frase Semilla Física
         } else if (phase == 2) {
-            // Firma Digital (cardCatalogId 5, attack 60, defense 10)
-            _mintCardInternal(to, 5, 60, 10);
+            _mintCardInternal(to, 5, 60, 10);  // Firma Digital
         } else if (phase == 3) {
-            // Velocidad de Celo / Plumo (cardCatalogId 7, attack 70, defense 40)
-            _mintCardInternal(to, 7, 70, 40);
+            _mintCardInternal(to, 7, 70, 40);  // Velocidad de Celo / Plumo
+        } else {
+            revert InvalidPhase(phase);
         }
     }
 
-    /**
-     * @dev Mint boss NFT cards upon victory. Only callable by minters.
-     */
     function mintBossCard(address to, uint256 bossId) external onlyMinter {
         if (bossId == 8) {
-            // Boss 1: Hacker Duplicador (bossId 8, attack 40, defense 100)
-            _mintCardInternal(to, 8, 40, 100);
+            _mintCardInternal(to, 8, 40, 100);  // Hacker Duplicador
         } else if (bossId == 9) {
-            // Boss 2: Ransomware Interceptor (bossId 9, attack 60, defense 150)
-            _mintCardInternal(to, 9, 60, 150);
+            _mintCardInternal(to, 9, 60, 150);  // Ransomware Interceptor
         } else if (bossId == 10) {
-            // Boss 3: Monstruo del Gas Alto (bossId 10, attack 80, defense 200)
-            _mintCardInternal(to, 10, 80, 200);
+            _mintCardInternal(to, 10, 80, 200); // Monstruo del Gas Alto
+        } else {
+            revert InvalidBossId(bossId);
         }
     }
 
-    /**
-     * @dev Returns all card NFTs owned by a player in a single RPC call.
-     */
+    // ---------------------------------------------------------------
+    // Views (mobile/MiniPay friendly)
+    // ---------------------------------------------------------------
+
     function getOwnedCards(address player) external view returns (OwnedCardInfo[] memory) {
-        uint256 total = totalSupply();
-        uint256 count = 0;
-        
-        for (uint256 i = 1; i <= total; i++) {
-            if (ownerOf(i) == player) {
-                count++;
-            }
-        }
-        
-        OwnedCardInfo[] memory owned = new OwnedCardInfo[](count);
-        uint256 index = 0;
-        for (uint256 i = 1; i <= total; i++) {
-            if (ownerOf(i) == player) {
-                CardData storage data = cards[i];
-                owned[index] = OwnedCardInfo({
-                    tokenId: i,
-                    cardCatalogId: data.cardCatalogId,
-                    attack: data.attack,
-                    defense: data.defense
-                });
-                index++;
-            }
+        uint256 balance = balanceOf(player);
+        OwnedCardInfo[] memory owned = new OwnedCardInfo[](balance);
+
+        for (uint256 i = 0; i < balance; i++) {
+            uint256 tokenId = tokenOfOwnerByIndex(player, i);
+            CardData storage data = cards[tokenId];
+            owned[i] = OwnedCardInfo({
+                tokenId: tokenId,
+                cardCatalogId: data.cardCatalogId,
+                attack: data.attack,
+                defense: data.defense
+            });
         }
         return owned;
     }
 
-    function totalSupply() public view returns (uint256) {
-        return _nextTokenId - 1;
+    function totalSupply() public view override(ERC721Enumerable) returns (uint256) {
+        return super.totalSupply();
+    }
+
+    // ---------------------------------------------------------------
+    // On-chain metadata (OpenSea / MetaMask / MiniPay compatible)
+    // ---------------------------------------------------------------
+
+    /**
+     * @dev Returns a `data:application/json;base64,...` URI containing the full metadata for
+     *      the given tokenId. The JSON follows the OpenSea/ERC-721 metadata schema so any
+     *      wallet that supports NFTs will render the card properly out of the box.
+     */
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        _requireOwned(tokenId);
+        CardData storage data = cards[tokenId];
+
+        (string memory name, string memory description, string memory category) =
+            _catalogInfo(data.cardCatalogId);
+
+        string memory image = _imageURI(data.cardCatalogId);
+
+        bytes memory json = abi.encodePacked(
+            '{"name":"', name, ' #', tokenId.toString(),
+            '","description":"', description,
+            '","image":"', image,
+            '","attributes":[',
+                '{"trait_type":"Catalog ID","value":', data.cardCatalogId.toString(), '},',
+                '{"trait_type":"Category","value":"', category, '"},',
+                '{"trait_type":"Attack","value":', data.attack.toString(), '},',
+                '{"trait_type":"Defense","value":', data.defense.toString(), '}',
+            ']}'
+        );
+
+        return string(
+            abi.encodePacked(
+                "data:application/json;base64,",
+                Base64.encode(json)
+            )
+        );
+    }
+
+    /// @dev Image URL builder. Uses `baseMetadataURI` if set, else falls back to a hosted
+    ///      SVG placeholder so the wallet always renders something during early testnet.
+    function _imageURI(uint256 cardCatalogId) internal view returns (string memory) {
+        if (bytes(baseMetadataURI).length == 0) {
+            // Stable public placeholder (data URI SVG so no network needed).
+            return _placeholderSvg(cardCatalogId);
+        }
+        return string(abi.encodePacked(baseMetadataURI, cardCatalogId.toString(), ".png"));
+    }
+
+    function _placeholderSvg(uint256 cardCatalogId) internal pure returns (string memory) {
+        bytes memory svg = abi.encodePacked(
+            "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 350 500'>",
+            "<rect width='100%' height='100%' fill='#FCFF52'/>",
+            "<text x='50%' y='40%' font-family='monospace' font-size='28' fill='#000' text-anchor='middle'>RoadApp</text>",
+            "<text x='50%' y='55%' font-family='monospace' font-size='64' fill='#000' text-anchor='middle'>#",
+            cardCatalogId.toString(),
+            "</text></svg>"
+        );
+        return string(
+            abi.encodePacked(
+                "data:image/svg+xml;base64,",
+                Base64.encode(svg)
+            )
+        );
+    }
+
+    /// @dev Hard-coded catalog of the 10 educational cards. Not random: this is the canonical
+    ///      learning path of the MiniPay game (anti-phishing -> seed -> L2 -> contracts -> ...).
+    function _catalogInfo(uint256 cardCatalogId)
+        internal
+        pure
+        returns (string memory name, string memory description, string memory category)
+    {
+        if (cardCatalogId == 1) {
+            return (
+                "Filtro Anti-Phishing",
+                "Bloquea intentos de phishing dirigidos a tu wallet de Celo.",
+                "Seguridad"
+            );
+        } else if (cardCatalogId == 2) {
+            return (
+                "Frase Semilla Fisica",
+                "Respalda tu seed phrase fuera de linea. Recompensa de la Fase 1.",
+                "Custodia"
+            );
+        } else if (cardCatalogId == 3) {
+            return (
+                "Canal de Capa 2",
+                "Capa 2 sobre Celo para escalar pagos con MiniPay.",
+                "Infraestructura"
+            );
+        } else if (cardCatalogId == 4) {
+            return (
+                "Smart Contract Blindado",
+                "Contrato auditado y resistente a reentrancy.",
+                "Smart Contracts"
+            );
+        } else if (cardCatalogId == 5) {
+            return (
+                "Firma Digital",
+                "Firma EIP-712 que autentica jugadas off-chain. Recompensa de la Fase 2.",
+                "Criptografia"
+            );
+        } else if (cardCatalogId == 6) {
+            return (
+                "Libro Contable Inmutable",
+                "El ledger publico de Celo, fuente unica de verdad.",
+                "Blockchain"
+            );
+        } else if (cardCatalogId == 7) {
+            return (
+                "Transaccion Veloz Celo",
+                "Bloques rapidos de Celo (Plumo). Recompensa de la Fase 3.",
+                "Performance"
+            );
+        } else if (cardCatalogId == 8) {
+            return (
+                "Hacker Duplicador",
+                "Boss 1 capturado: ataque de replay neutralizado.",
+                "Boss"
+            );
+        } else if (cardCatalogId == 9) {
+            return (
+                "Ransomware Interceptor",
+                "Boss 2 capturado: defensa contra secuestro de claves.",
+                "Boss"
+            );
+        } else if (cardCatalogId == 10) {
+            return (
+                "Monstruo del Gas Alto",
+                "Boss 3 capturado: dominio absoluto del fee market de Celo.",
+                "Boss"
+            );
+        }
+        revert UnknownCard(cardCatalogId);
+    }
+
+    // ---------------------------------------------------------------
+    // Soulbound enforcement + multiple inheritance plumbing (OZ v5)
+    // ---------------------------------------------------------------
+
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override(ERC721Enumerable)
+        returns (address)
+    {
+        address from = _ownerOf(tokenId);
+        if (from != address(0) && to != address(0)) {
+            revert CardsAreSoulbound();
+        }
+        return super._update(to, tokenId, auth);
+    }
+
+    function _increaseBalance(address account, uint128 value)
+        internal
+        override(ERC721Enumerable)
+    {
+        super._increaseBalance(account, value);
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721Enumerable)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
     }
 }

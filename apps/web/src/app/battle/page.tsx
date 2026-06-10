@@ -715,7 +715,7 @@ export default function BattlePage() {
                   <Loader2 className="h-16 w-16 animate-spin text-indigo-600 mb-4" />
                   <h3 className="battle-locked__title text-slate-800">¡Victoria Conseguida!</h3>
                   <p className="battle-locked__desc text-slate-500" style={{ maxWidth: 400 }}>
-                    Registrando la derrota del jefe y minteando tu NFT de recompensa en Celo Sepolia...
+                    Registrando la derrota del jefe y minteando tu NFT de recompensa en Celo…
                   </p>
                   
                   {victoryError && (

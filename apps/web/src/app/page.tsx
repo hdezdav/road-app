@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { 
@@ -33,6 +33,17 @@ export default function LandingPage() {
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const [loading, setLoading] = useState(false);
+  const [isMiniPay, setIsMiniPay] = useState(false);
+
+  // Detección de MiniPay (Celopedia §1 "Seamless User Experience" / Zero-Click
+  // Connect). Dentro de MiniPay, `wallet-provider.tsx` ya auto-conecta el
+  // injected provider; aquí lo usamos solo para ocultar el botón "Conectar
+  // Wallet" y evitar la fricción extra que MiniPay explícitamente prohíbe.
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).ethereum?.isMiniPay) {
+      setIsMiniPay(true);
+    }
+  }, []);
 
   const handleConnect = async () => {
     setLoading(true);
@@ -47,7 +58,11 @@ export default function LandingPage() {
     }
   };
 
-  const cta = isConnected ? () => router.push("/pack") : handleConnect;
+  // En MiniPay nunca pedimos "Conectar Wallet" — el provider ya está
+  // disponible; el CTA salta directo a abrir el sobre.
+  const cta = isConnected || isMiniPay
+    ? () => router.push("/pack")
+    : handleConnect;
 
   const tutorialSteps = [
     {
@@ -243,13 +258,17 @@ export default function LandingPage() {
                 transition={{ delay: 0.3 }}
                 className="mt-9 flex flex-col items-center gap-4 sm:flex-row lg:items-start lg:justify-start"
               >
-                <Button 
+                <Button
                   size="lg"
-                  onClick={cta} 
+                  onClick={cta}
                   disabled={loading}
                   className="h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 rounded-xl"
                 >
-                  {loading ? "Conectando..." : "Conectar Wallet para empezar"}
+                  {isMiniPay
+                    ? "Abrir mi primer sobre"
+                    : loading
+                      ? "Abriendo…"
+                      : "Conectar Wallet para empezar"}
                 </Button>
                 <Button
                   variant="outline"
@@ -262,7 +281,7 @@ export default function LandingPage() {
               </motion.div>
 
               <p className="mt-4 text-xs text-slate-500">
-                Conexión Web3 real en Celo Sepolia. Fricción cero para empezar. ✨
+                Conexión Web3 real en Celo. Fricción cero para empezar. ✨
               </p>
             </div>
 

@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, PartyPopper, Loader2, Sparkles, Trophy, Gift } from "lucide-react";
+import { ArrowRight, Loader2, Sparkles, Trophy, Gift, ExternalLink } from "lucide-react";
 import { useAccount, useWriteContract, usePublicClient } from "wagmi";
-import { NFT_CARDS_ABI, GAME_STATE_ABI, CONTRACT_ADDRESSES } from "@/lib/contracts";
+import { decodeEventLog } from "viem";
+import { NFT_CARDS_ABI, GAME_STATE_ABI, CONTRACT_ADDRESSES, SUPPORTED_CHAIN_ID } from "@/lib/contracts";
+import { watchNFTsInWallet, getNftExplorerUrl } from "@/lib/wallet-assets";
 
 import { BgGradient } from "@/components/ui/bg-gradient";
 import { Button } from "@/components/ui/button";
@@ -102,37 +104,64 @@ export default function OpenPackPage() {
     if (packType === "starter") {
       setTxStep(1);
       try {
-        // Step 1: Mint Starter Pack
-        const mintTx = await writeContractAsync({
-          address: CONTRACT_ADDRESSES.NFT_CARDS,
-          abi: NFT_CARDS_ABI,
-          functionName: 'mintStarterPack',
-          args: [address],
-        });
-         if (publicClient) {
-          await publicClient.waitForTransactionReceipt({ hash: mintTx });
+        // Edge case: el usuario YA tiene NFTs pero quedó sin registrar en
+        // GameState (ej. rechazó la 2da firma en un intento anterior).
+        // mintStarterPack revertiría con AlreadyMinted; saltamos directo al
+        // paso 2 ("solo registrar") para no pedirle otra firma + network fee
+        // (CIP-64) por algo que ya pagó.
+        const alreadyHasCards = ownedCardIds.length > 0;
+        const mintedTokenIds: bigint[] = [];
+
+        if (!alreadyHasCards) {
+          // Step 1: Mint Starter Pack
+          const mintTx = await writeContractAsync({
+            address: CONTRACT_ADDRESSES.NFT_CARDS,
+            abi: NFT_CARDS_ABI,
+            functionName: 'mintStarterPack',
+            args: [address],
+          });
+          if (publicClient) {
+            const receipt = await publicClient.waitForTransactionReceipt({ hash: mintTx });
+            // Decode the `CardMinted` events to extract the freshly-minted tokenIds.
+            // We then ask the wallet (e.g. MetaMask) to track them via EIP-747.
+            for (const log of receipt.logs) {
+              try {
+                const decoded = decodeEventLog({
+                  abi: NFT_CARDS_ABI,
+                  data: log.data,
+                  topics: log.topics,
+                });
+                if (decoded.eventName === "CardMinted" && (decoded.args as any)?.tokenId) {
+                  mintedTokenIds.push((decoded.args as any).tokenId as bigint);
+                }
+              } catch {
+                // Unrelated log -> ignore
+              }
+            }
+          }
+
+          // Wait a short delay to let wallet provider sync the nonce
+          await new Promise((resolve) => setTimeout(resolve, 2000));
         }
 
-        // Wait a short delay to let wallet provider sync the nonce
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        // Step 2: Register in GameState
+        // Step 2: Register in GameState (siempre se ejecuta, ya sea tras
+        // mintear o tras detectar que las cartas ya existían).
         setTxStep(2);
         const txOptions: { nonce?: number } = {};
         if (publicClient && address) {
           try {
             // Retrieve nonce with 'pending' blockTag to count mempool/unmined transactions
-            const nextNonce = await publicClient.getTransactionCount({ 
-              address, 
-              blockTag: 'pending' 
+            const nextNonce = await publicClient.getTransactionCount({
+              address,
+              blockTag: 'pending',
             });
             txOptions.nonce = nextNonce;
           } catch (e) {
             console.warn("Error resolving pending nonce:", e);
             try {
-              const nextNonceLatest = await publicClient.getTransactionCount({ 
-                address, 
-                blockTag: 'latest' 
+              const nextNonceLatest = await publicClient.getTransactionCount({
+                address,
+                blockTag: 'latest',
               });
               txOptions.nonce = nextNonceLatest;
             } catch (e2) {
@@ -154,9 +183,28 @@ export default function OpenPackPage() {
         await refetch();
         setTxStep(3);
         setOpened(true);
+
+        // Ask the connected wallet (MetaMask etc.) to display the new NFTs.
+        // Silently no-ops on wallets that don't implement EIP-747 for ERC721.
+        if (mintedTokenIds.length > 0) {
+          watchNFTsInWallet(CONTRACT_ADDRESSES.NFT_CARDS, mintedTokenIds).catch(() => {});
+        }
       } catch (err: any) {
         console.error(err);
-        setErrorText(err.message || "Error al mintear tu sobre inicial.");
+        // Distinguir "User rejected" (no es un bug, el usuario decidió no
+        // firmar) de errores reales. viem expone `shortMessage` y los códigos
+        // 4001 / "User rejected" / "User denied".
+        const raw = (err?.shortMessage || err?.message || "").toString();
+        const isUserReject =
+          err?.code === 4001 ||
+          /user rejected|user denied|rejected the request/i.test(raw);
+        if (isUserReject) {
+          setErrorText(
+            "Cancelaste la firma. Toca el sobre cuando quieras reintentar (si ya minteaste las cartas, solo se te pedirá una firma para completar el registro).",
+          );
+        } else {
+          setErrorText(raw || "Error al mintear tu sobre inicial.");
+        }
         setTxStep(0);
       }
     } else {
@@ -269,13 +317,8 @@ export default function OpenPackPage() {
               {txStep > 0 && txStep < 3 && (
                 <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-3xl bg-black/70 backdrop-blur-sm text-white p-6">
                   <Loader2 className="h-10 w-10 animate-spin mb-3 text-indigo-400" />
-                  <span className="text-sm font-bold text-center">
-                    {txStep === 1
-                      ? "Paso 1/2: Minteando tus cartas iniciales (NFTs)..."
-                      : "Paso 2/2: Registrando tu progreso en Celo Sepolia..."}
-                  </span>
-                  <span className="text-xs text-slate-400 mt-2 text-center">
-                    Por favor, confirma la transacción en tu wallet.
+                  <span className="text-xs text-slate-300 mt-2 text-center">
+                    Confirma la transacción en tu wallet…
                   </span>
                 </div>
               )}
@@ -291,7 +334,7 @@ export default function OpenPackPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: activePackCards.length * 0.15 + 0.3 }}
-                className="mt-12 flex gap-4"
+                className="mt-12 flex flex-wrap items-center justify-center gap-4"
               >
                 <Button
                   size="lg"
@@ -308,6 +351,16 @@ export default function OpenPackPage() {
                 >
                   Ir a Combate
                 </Button>
+                {address && (
+                  <a
+                    href={getNftExplorerUrl(SUPPORTED_CHAIN_ID, CONTRACT_ADDRESSES.NFT_CARDS, address)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white/60 px-6 text-sm font-semibold text-slate-700 backdrop-blur hover:bg-white"
+                  >
+                    Ver NFTs en Celoscan <ExternalLink className="h-4 w-4" />
+                  </a>
+                )}
               </motion.div>
             )}
           </>

@@ -64,12 +64,9 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
 
   // Resolve full card objects from the catalog matching on cardCatalogId
   const ownedCards = useMemo(() => {
-    console.log("DEBUG: ownedCardsData from Celo:", ownedCardsData);
     if (!ownedCardsData) return [];
-    
-    return ownedCardsData.map((item, idx) => {
-      console.log(`DEBUG: Raw item [${idx}] from getOwnedCards:`, item);
-      
+
+    return ownedCardsData.map((item) => {
       // Support array tuple, camelCase object, snake_case object, and index-based fallback
       const tokenId = Number(
         Array.isArray(item)
@@ -81,14 +78,9 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
           ? item[1]
           : (item.cardCatalogId ?? (item as any).card_catalog_id ?? (item as any)[1] ?? 0)
       );
-      
-      console.log(`DEBUG: Parsed item [${idx}] -> tokenId:`, tokenId, "cardCatalogId:", cardCatalogId);
-      
+
       const baseCard = heroCards.find((c) => c.tokenId === cardCatalogId);
-      if (!baseCard) {
-        console.log(`DEBUG: No baseCard found in heroCards for cardCatalogId: ${cardCatalogId}`);
-        return null;
-      }
+      if (!baseCard) return null;
       
       return {
         ...baseCard,

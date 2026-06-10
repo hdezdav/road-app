@@ -1,89 +1,130 @@
-# road-app - Smart Contracts
+# road-app — Smart Contracts
 
-This directory contains the smart contracts for road-app, built with Hardhat and optimized for the Celo blockchain.
+Tres contratos Solidity 0.8.28 que potencian el juego **Road App** en MiniPay sobre Celo:
+
+| Contract              | Responsabilidad                                                                |
+| --------------------- | ------------------------------------------------------------------------------ |
+| `RoadAppNFTCards`     | ERC-721 (Enumerable + URIStorage) **soulbound** con 10 cartas y `tokenURI` on-chain. |
+| `RoadAppGameState`    | Máquina de estado del jugador + **EIP-712** anti-trampa (bosses, seed backup). |
+| `RoadAppDeckManager`  | Mazo activo persistente (≤ 10 NFT tokenIds) con validación de ownership.       |
+
+Los tres siguen las recomendaciones de Celopedia para despliegues en Celo L2:
+`Ownable2Step`, custom errors, EIP-712 typed data con nonces por jugador + deadline,
+transfers soulbound, lectura de inventario en una sola RPC (`getOwnedCards`) para la
+UX de MiniPay.
+
+---
 
 ## 🚀 Quick Start
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Compile contracts
-pnpm compile
-
-# Run tests
-pnpm test
-
-# Deploy to Celo Sepolia Testnet
-pnpm deploy:celo-sepolia
-
-# Deploy to Celo Mainnet
-pnpm deploy:celo
+pnpm --filter hardhat compile
+pnpm --filter hardhat test
 ```
 
-## 📜 Available Scripts
+### Deploy a Celo Mainnet
 
-- `pnpm compile` - Compile smart contracts
-- `pnpm test` - Run contract tests
-- `pnpm deploy` - Deploy to local network
-- `pnpm deploy:celo-sepolia` - Deploy to Celo Sepolia Testnet
-- `pnpm deploy:celo` - Deploy to Celo Mainnet
-- `pnpm verify` - Verify contracts on Etherscan
-- `pnpm clean` - Clean artifacts and cache
+```bash
+# 1. Configura .env (PRIVATE_KEY del deployer)
 
-## 🌐 Networks
+# 2. Fondea el deployer con CELO real (la cuenta de la PRIVATE_KEY).
+#    Coste estimado: ~0.17 CELO @ 25 gwei.
 
-### Celo Mainnet
-- **Chain ID**: 42220
-- **RPC URL**: https://forno.celo.org
-- **Explorer**: https://celoscan.io
-
-### Celo Sepolia Testnet
-- **Chain ID**: 11142220
-- **RPC URL**: https://forno.celo-sepolia.celo-testnet.org/
-- **Explorer**: https://sepolia.celoscan.io/
-- **Faucet**: https://faucet.celo.org/celo-sepolia
-
-
-## 🔧 Environment Setup
-
-1. Copy the environment template:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Fill in your private key and API keys:
-   ```env
-   PRIVATE_KEY=your_private_key_without_0x_prefix
-   ETHERSCAN_API_KEY=your_etherscan_api_key
-   ```
-
-## 📁 Project Structure
-
-```
-contracts/          # Smart contract source files
-├── Lock.sol        # Sample timelock contract
-
-test/              # Contract tests
-├── Lock.ts        # Tests for Lock contract
-
-ignition/          # Deployment scripts
-└── modules/
-    └── Lock.ts    # Lock contract deployment
-
-hardhat.config.ts  # Hardhat configuration
-tsconfig.json      # TypeScript configuration
+# 3. Deploy
+pnpm --filter hardhat deploy:celo
 ```
 
-## 🔐 Security Notes
+El script:
+1. Despliega `RoadAppNFTCards` (con `NFT_BASE_METADATA_URI` del `.env` como fallback;
+   el `tokenURI` real se genera on-chain como data URI base64).
+2. Despliega `RoadAppDeckManager`.
+3. Despliega `RoadAppGameState` (EIP-712 domain `RoadAppGameState v1`).
+4. Cablea `GameState.setNFTContract(NFTCards)` y `NFTCards.setMinter(GameState, true)`.
+5. Opcionalmente llama `GameState.setTrustedSigner(TRUSTED_SIGNER_ADDRESS)`.
+6. Guarda direcciones en `deployments/<network>.json` e imprime los `NEXT_PUBLIC_*`
+   que debes pegar en `apps/web/.env.local`.
 
-- Never commit your `.env` file with real private keys
-- Use a dedicated wallet for development/testing
-- Test thoroughly on Celo Sepolia Testnet before CeloMainnet deployment
-- Consider using a hardware wallet for mainnet deployments
+### Verificar en Celoscan
 
-## 📚 Learn More
+```bash
+pnpm --filter hardhat verify:celo <NFT_CARDS_ADDRESS> "https://raw.githubusercontent.com/road-app/metadata/main/"
+pnpm --filter hardhat verify:celo <GAME_STATE_ADDRESS>
+pnpm --filter hardhat verify:celo <DECK_MANAGER_ADDRESS> <NFT_CARDS_ADDRESS>
+```
 
-- [Hardhat Documentation](https://hardhat.org/docs)
-- [Celo Developer Documentation](https://docs.celo.org)
-- [Viem Documentation](https://viem.sh) (Ethereum library used by Hardhat)
+---
+
+## 🌐 Red
+
+| Network          | Chain ID    | RPC                                              | Explorer                       |
+| ---------------- | ----------- | ------------------------------------------------ | ------------------------------ |
+| Celo Mainnet     | 42220       | https://forno.celo.org                           | https://celoscan.io            |
+
+> El proyecto solo soporta Celo Mainnet (chainId 42220). Para experimentación local
+> usa `pnpm --filter hardhat deploy:localhost` contra un `hardhat node`.
+
+---
+
+## 🛡️ Security model
+
+* **Soulbound NFTs**: `_update` en `RoadAppNFTCards` bloquea todo transfer con
+  `from!=0 && to!=0`. Así `DeckManager.validateDeck` nunca queda stale por una venta.
+* **EIP-712 anti-trampa**: cada `recordBossDefeat` incluye
+  `(player, phase, nonce, deadline)` firmado por `trustedSigner`. La firma está
+  atada a `chainId` y `verifyingContract`, así que un payload no se puede replayear
+  en otra red.
+* **Nonces por jugador**: en `nonces[player]`, leídos off-chain con `getNonce(player)`
+  y consumidos en cada firma exitosa.
+* **Ownable2Step**: `transferOwnership` requiere `acceptOwnership()` del nuevo owner,
+  evitando perder admin por accidente (el incidente más típico en MiniPay: desplegar
+  con un burner que luego se borra).
+* **Custom errors** en lugar de revert strings: menos gas + decoding estructurado.
+
+### Trusted signer setup
+
+En OPEN MODE (`trustedSigner == address(0)`) las firmas NO son necesarias — solo
+para dev/demo. Para activar el anti-trampa:
+
+```ts
+await gameState.write.setTrustedSigner(["0xYourBackendSignerEOA"]);
+```
+
+El backend off-chain construye el typed payload con viem/ethers usando domain
+`{ name: "RoadAppGameState", version: "1", chainId, verifyingContract }` y tipo
+`BossDefeat(address player,uint256 phase,uint256 nonce,uint256 deadline)`.
+Ver `test/RoadApp.test.ts` para un ejemplo funcionando.
+
+---
+
+## 📁 Layout
+
+```
+contracts/
+├── RoadAppNFTCards.sol       Soulbound ERC-721 + starter/boss/reward minting + on-chain tokenURI
+├── RoadAppGameState.sol      EIP-712 player state machine
+└── RoadAppDeckManager.sol    Active deck storage + validation
+
+scripts/
+└── deploy.ts                 Deterministic 3-contract deployment + wiring
+
+test/
+└── RoadApp.test.ts           Smoke tests (soulbound, EIP-712, deck)
+
+hardhat.config.ts             solc 0.8.28 / evmVersion cancun / Celo Mainnet
+```
+
+---
+
+## 🔐 Security notes
+
+* Never commit `.env` con keys reales.
+* Para mainnet, ideal usar hardware wallet vía conector Frame/Rabby en vez de
+  `PRIVATE_KEY` en plano.
+
+## 📚 Resources
+
+* [Celo Developer Docs](https://docs.celo.org)
+* [MiniPay docs](https://docs.celo.org/developer/build-on-minipay)
+* [Hardhat](https://hardhat.org/docs)
+* [Viem](https://viem.sh)

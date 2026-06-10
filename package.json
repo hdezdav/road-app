@@ -17,6 +17,8 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.42",
+    "browserslist": "^4.28.2",
+    "caniuse-lite": "^1.0.30001797",
     "turbo": "^1.13.4",
     "typescript": "^5.9.3"
   },
