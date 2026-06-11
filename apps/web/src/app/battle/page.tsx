@@ -22,8 +22,11 @@ import { GameCard } from "@/components/game-card";
 import { Button } from "@/components/ui/button";
 import { heroCards, type Card } from "@/data/cards";
 import { useInventory } from "@/context/InventoryContext";
-import { CONTRACT_ADDRESSES, GAME_STATE_ABI } from "@/lib/contracts";
+import { CONTRACT_ADDRESSES, GAME_STATE_ABI, NFT_CARDS_ABI } from "@/lib/contracts";
+import { decodeEventLog } from "viem";
+import { watchNFTsInWallet } from "@/lib/wallet-assets";
 import "./battle.css";
+
 
 /* ─── Constants ─── */
 const MAX_HAND_SIZE = 3;
@@ -84,15 +87,23 @@ export default function BattlePage() {
 
   /* ── Game state ── */
   const [phase, setPhase] = useState<PHASE>(PHASE.PRE);
+  const [battlePhase, setBattlePhase] = useState<number>(1);
+
+  // Sync battlePhase with current player phase before the combat begins
+  useEffect(() => {
+    if (phase === PHASE.PRE && currentPhase > 0) {
+      setBattlePhase(currentPhase);
+    }
+  }, [phase, currentPhase]);
   
-  // Pick boss based on current player phase
+  // Pick boss based on the cached player phase for this battle
   const enemy = useMemo(() => {
     // Phase 1 -> Hacker Duplicador (8)
     // Phase 2 -> Ransomware Interceptor (9)
     // Phase 3 -> Monstruo del Gas Alto (10)
-    const bossId = currentPhase === 1 ? 8 : currentPhase === 2 ? 9 : 10;
+    const bossId = battlePhase === 1 ? 8 : battlePhase === 2 ? 9 : 10;
     return heroCards.find((c) => c.tokenId === bossId) || heroCards[heroCards.length - 1];
-  }, [currentPhase]);
+  }, [battlePhase]);
 
   // Pre-battle: card selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -213,10 +224,29 @@ export default function BattlePage() {
         address: CONTRACT_ADDRESSES.GAME_STATE,
         abi: GAME_STATE_ABI,
         functionName: "recordBossDefeat",
-        args: [BigInt(currentPhase), 0n, "0x"],
+        args: [BigInt(battlePhase), 0n, "0x"],
       });
+
+      const mintedTokenIds: bigint[] = [];
       if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash: tx });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: tx });
+        
+        // Decode the `CardMinted` events to extract the freshly-minted tokenIds.
+        // We then ask the wallet (e.g. MetaMask) to track them via EIP-747.
+        for (const log of receipt.logs) {
+          try {
+            const decoded = decodeEventLog({
+              abi: NFT_CARDS_ABI,
+              data: log.data,
+              topics: log.topics,
+            });
+            if (decoded.eventName === "CardMinted" && (decoded.args as any)?.tokenId) {
+              mintedTokenIds.push((decoded.args as any).tokenId as bigint);
+            }
+          } catch {
+            // Unrelated log -> ignore
+          }
+        }
       }
 
       // El RPC público de Celo (Forno) suele tardar 1-2 bloques en reflejar el
@@ -227,6 +257,11 @@ export default function BattlePage() {
       for (let i = 0; i < 4; i++) {
         await refetch();
         await new Promise((r) => setTimeout(r, 1200));
+      }
+
+      // Ask the connected wallet to display the new NFTs (Boss + Reward pack).
+      if (mintedTokenIds.length > 0) {
+        watchNFTsInWallet(CONTRACT_ADDRESSES.NFT_CARDS, mintedTokenIds).catch(() => {});
       }
 
       setDidWin(true);
@@ -244,7 +279,7 @@ export default function BattlePage() {
           : raw || "Error al emitir transacción."
       );
     }
-  }, [currentPhase, writeContractAsync, publicClient, refetch]);
+  }, [battlePhase, writeContractAsync, publicClient, refetch]);
 
   /* ── Play a card ── */
   const playCard = useCallback(
@@ -366,7 +401,7 @@ export default function BattlePage() {
               Conseguir Starter Pack
             </Link>
           </div>
-        ) : hasDefeatedPhase3 || currentPhase > 3 ? (
+        ) : (hasDefeatedPhase3 || currentPhase > 3) && phase === PHASE.PRE ? (
           /* ── Game Completed ── */
           <div className="battle-locked">
             <motion.div
@@ -406,7 +441,7 @@ export default function BattlePage() {
                   {/* Header */}
                   <div className="pre-battle__header">
                     <span className="pre-battle__badge">
-                      <Swords size={14} className="text-indigo-600" /> Arena de Combate · Fase {currentPhase}
+                      <Swords size={14} className="text-indigo-600" /> Arena de Combate · Fase {battlePhase}
                     </span>
                     <h1 className="pre-battle__title">
                       Elige tu <span>Estrategia</span>

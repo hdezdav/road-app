@@ -4,9 +4,8 @@
   const client = createPublicClient({ transport: http('https://forno.celo.org') });
 
   const targets = {
-    GameState: '0xc977c3c1c48c0a24eff78c866f7fed7bfe5a1ff5',
-    NFTCards:  '0x3e3adfd56091511e2e572e40cbb424d3bda54ca6',
-    DeckMgr:   '0x0233dad6871a563e052cc3a3681264f8e0ce37cb',
+    GameState: '0x0def64e521992e40b4f8757f0e7843641bfb71d8',
+    NFTCards:  '0x7adf3b31eb190c1d46c3035d7d725ab61230e35b',
   };
 
   for (const [label, addr] of Object.entries(targets)) {
