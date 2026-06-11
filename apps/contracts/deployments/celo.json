@@ -2,10 +2,10 @@
   "network": "celo",
   "chainId": 42220,
   "deployer": "0x0419f23541408eecab6ec4bd96a454ee8a1dd1be",
-  "timestamp": "2026-06-10T15:36:19.759Z",
+  "timestamp": "2026-06-11T21:23:11.096Z",
   "contracts": {
-    "RoadAppNFTCards": "0x7adf3b31eb190c1d46c3035d7d725ab61230e35b",
-    "RoadAppGameState": "0x0def64e521992e40b4f8757f0e7843641bfb71d8"
+    "RoadAppNFTCards": "0x17d714b558dd034f563c8fac49393010e0dcb827",
+    "RoadAppGameState": "0xb1bb0f1a3deacfe95f9e8840331ee698256e4896"
   },
   "baseMetadataURI": "https://raw.githubusercontent.com/road-app/metadata/main/",
   "trustedSigner": null

@@ -138,7 +138,9 @@ contract RoadAppNFTCards is ERC721Enumerable, Ownable2Step {
     }
 
     function mintStarterPack(address to) external {
-        require(to == msg.sender, "Can only claim your own starter");
+        if (!authorizedMinters[msg.sender] && msg.sender != owner() && to != msg.sender) {
+            revert NotAuthorizedMinter();
+        }
         if (hasClaimedStarter[to]) revert StarterAlreadyClaimed();
         hasClaimedStarter[to] = true;
 

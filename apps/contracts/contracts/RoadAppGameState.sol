@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 interface IRoadAppNFTCards {
     function mintBossCard(address to, uint256 bossId) external;
     function mintRewardPack(address to, uint256 phase) external;
+    function mintStarterPack(address to) external;
     function ownerOf(uint256 tokenId) external view returns (address);
 }
 
@@ -149,6 +150,11 @@ contract RoadAppGameState is Ownable2Step, EIP712 {
         if (registeredIndex[msg.sender] == 0) {
             registeredPlayers.push(msg.sender);
             registeredIndex[msg.sender] = registeredPlayers.length; // 1-based
+        }
+
+        // Auto-mint starter pack in the same transaction!
+        if (address(nftContract) != address(0)) {
+            nftContract.mintStarterPack(msg.sender);
         }
 
         emit PlayerRegistered(msg.sender);

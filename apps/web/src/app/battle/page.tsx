@@ -142,28 +142,12 @@ export default function BattlePage() {
     []
   );
 
-  /* ── Start battle (calls saveDeck on-chain) ── */
+  /* ── Start battle (local setup) ── */
   const startBattle = async () => {
     if (selectedIds.length < MAX_HAND_SIZE) return;
     setSavingDeck(true);
     try {
-      // Step 1: Save deck on-chain (deck storage fusionado en GameState desde v2).
-      const ids = selectedIds.map((id) => {
-        const card = ownedCards.find((c) => c.id === id);
-        return card ? BigInt(card.nftTokenId || 0) : 0n;
-      }).filter((id) => id !== 0n);
-
-      const tx = await writeContractAsync({
-        address: CONTRACT_ADDRESSES.GAME_STATE,
-        abi: GAME_STATE_ABI,
-        functionName: "saveDeck",
-        args: [ids],
-      });
-      if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash: tx });
-      }
-
-      // Step 2: Setup local battle state
+      // Setup local battle state
       const selectedCards = selectedIds.map((id) =>
         ownedCards.find((c) => c.id === id)
       ).filter((c): c is Card => c !== undefined);
@@ -182,7 +166,6 @@ export default function BattlePage() {
       setPhase(PHASE.BATTLE);
     } catch (err: any) {
       console.error(err);
-      alert("Error al registrar y validar tu mazo on-chain: " + (err.message || err));
     } finally {
       setSavingDeck(false);
     }
@@ -583,7 +566,7 @@ export default function BattlePage() {
                       {savingDeck ? (
                         <>
                           <Loader2 size={18} className="animate-spin" />
-                          Validando en blockchain...
+                          Iniciando Combate...
                         </>
                       ) : (
                         <>

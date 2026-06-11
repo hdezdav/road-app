@@ -128,7 +128,7 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="mt-8 text-3xl font-extrabold leading-tight tracking-tight text-slate-800 sm:text-5xl md:text-7xl"
+              className="mt-4 text-2xl xs:text-3xl font-extrabold leading-tight tracking-tight text-slate-800 sm:text-5xl md:text-7xl"
             >
               Bienvenido al mundo Web3.<br />
               <span className="bg-gradient-to-r from-indigo-600 to-indigo-800 bg-clip-text text-transparent">Aquí están las reglas.</span>
@@ -138,7 +138,7 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="mx-auto mt-6 max-w-2xl text-lg text-slate-600 sm:text-xl"
+              className="mx-auto mt-4 max-w-2xl text-sm xs:text-lg text-slate-600 sm:text-xl"
             >
               Antes de abrir tu primer sobre, descubre cómo se conectan los conceptos del juego con la tecnología real.
             </motion.p>
@@ -147,7 +147,7 @@ export default function LandingPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 1, duration: 1 }}
-              className="absolute bottom-8 flex flex-col items-center gap-2 sm:bottom-12"
+              className="absolute bottom-2 xs:bottom-8 flex flex-col items-center gap-2 sm:bottom-12"
             >
               <span className="text-sm font-medium text-slate-500 uppercase tracking-widest">Haz scroll para aprender</span>
               <motion.div
@@ -163,22 +163,22 @@ export default function LandingPage() {
           {tutorialSteps.map((step) => (
             <section 
               key={step.title}
-              className="flex h-[calc(100vh-64px)] w-full shrink-0 snap-center flex-col items-center justify-center px-4 py-16 text-center sm:px-6 sm:py-20"
+              className="flex h-[calc(100vh-64px)] w-full shrink-0 snap-center flex-col items-center justify-center px-4 py-4 text-center sm:px-6 sm:py-20"
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.9, y: 50 }}
                 whileInView={{ opacity: 1, scale: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.6 }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
-                className={`flex max-w-3xl flex-col items-center rounded-[2rem] border ${step.borderColor} bg-white/60 p-6 shadow-xl backdrop-blur-md sm:p-12`}
+                className={`flex max-w-3xl flex-col items-center rounded-[1.5rem] sm:rounded-[2rem] border ${step.borderColor} bg-white/60 p-4 xs:p-6 shadow-xl backdrop-blur-md sm:p-12`}
               >
-                <div className={`mb-6 flex h-20 w-20 items-center justify-center rounded-3xl ${step.bg} sm:mb-8 sm:h-24 sm:w-24`}>
-                  <step.icon className={`h-10 w-10 ${step.color} sm:h-12 sm:w-12`} />
+                <div className={`mb-3 flex h-14 w-14 xs:h-20 xs:w-20 items-center justify-center rounded-2xl sm:rounded-3xl ${step.bg} sm:mb-8 sm:h-24 sm:w-24`}>
+                  <step.icon className={`h-7 w-7 xs:h-10 xs:w-10 ${step.color} sm:h-12 sm:w-12`} />
                 </div>
                 
-                <h2 className="text-3xl font-extrabold text-slate-800 sm:text-4xl md:text-6xl">{step.title}</h2>
-                <p className="mt-2 text-base font-bold uppercase tracking-widest text-indigo-600 sm:text-lg">{step.subtitle}</p>
-                <p className="mt-6 text-lg leading-relaxed text-slate-600 sm:mt-8 sm:text-xl md:text-2xl">
+                <h2 className="text-xl xs:text-3xl font-extrabold text-slate-800 sm:text-4xl md:text-6xl">{step.title}</h2>
+                <p className="mt-1 text-xs xs:text-base font-bold uppercase tracking-widest text-indigo-600 sm:text-lg">{step.subtitle}</p>
+                <p className="mt-3 text-sm xs:text-lg leading-relaxed text-slate-600 sm:mt-8 sm:text-xl md:text-2xl">
                   {step.text}
                 </p>
               </motion.div>
@@ -286,7 +286,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="relative flex h-[16rem] w-full flex-1 items-center justify-center overflow-hidden xs:h-[20rem] sm:h-[26rem]">
+            <div className="relative flex h-[16rem] w-full flex-1 items-center justify-center overflow-visible xs:h-[20rem] sm:h-[26rem]">
               {/* El abanico usa offsets en píxeles fijos (±150px). En mobile
                   escalamos todo el contenedor para que las cartas no se
                   desborden ni se solapen en pantallas angostas (<360px).

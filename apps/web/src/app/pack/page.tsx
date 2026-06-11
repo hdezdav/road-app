@@ -153,60 +153,8 @@ export default function OpenPackPage() {
     // For starter pack, trigger on-chain transactions
     if (packType === "starter") {
       setTxStep(1);
+      const mintedTokenIds: bigint[] = [];
       try {
-        // Edge case: el usuario YA tiene NFTs pero quedó sin registrar en
-        // GameState (ej. rechazó la 2da firma en un intento anterior).
-        // mintStarterPack revertiría con StarterAlreadyClaimed; saltamos
-        // directo al paso 2 ("solo registrar") para no pedirle otra firma +
-        // network fee (CIP-64) por algo que ya pagó.
-        //
-        // Preferimos la lectura on-chain `hasClaimedStarter` (autoridad real)
-        // sobre `ownedCardIds.length` porque las cartas podrían no estar
-        // cargadas aún en el contexto cuando se hace clic.
-        const alreadyClaimedStarter =
-          hasClaimedStarter === true || ownedCardIds.length > 0;
-        const mintedTokenIds: bigint[] = [];
-
-        if (!alreadyClaimedStarter) {
-          // Step 1: Mint Starter Pack
-          const mintTx = await writeContractAsync({
-            address: CONTRACT_ADDRESSES.NFT_CARDS,
-            abi: NFT_CARDS_ABI,
-            functionName: 'mintStarterPack',
-            args: [address],
-          });
-          if (publicClient) {
-            const receipt = await publicClient.waitForTransactionReceipt({ hash: mintTx });
-            // Decode the `CardMinted` events to extract the freshly-minted tokenIds.
-            // We then ask the wallet (e.g. MetaMask) to track them via EIP-747.
-            for (const log of receipt.logs) {
-              try {
-                const decoded = decodeEventLog({
-                  abi: NFT_CARDS_ABI,
-                  data: log.data,
-                  topics: log.topics,
-                });
-                if (decoded.eventName === "CardMinted" && (decoded.args as any)?.tokenId) {
-                  mintedTokenIds.push((decoded.args as any).tokenId as bigint);
-                }
-              } catch {
-                // Unrelated log -> ignore
-              }
-            }
-          }
-
-          // Wait a short delay to let wallet provider sync the nonce
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        }
-
-        // Step 2: Register in GameState — solo si el contrato confirma que
-        // NO está registrado aún. Si ya está registrado, `registerPlayer`
-        // revertiría con `AlreadyRegistered()` durante `eth_estimateGas`
-        // (este era el error: "The contract function registerPlayer reverted").
-        setTxStep(2);
-
-        // Re-verificamos on-chain por si `isAlreadyRegistered` (hook) aún no
-        // reflejaba el estado más fresco al momento del clic.
         let needsRegister = isAlreadyRegistered !== true;
         if (publicClient && address && needsRegister) {
           try {
@@ -252,8 +200,25 @@ export default function OpenPackPage() {
             functionName: 'registerPlayer',
             ...txOptions,
           });
+
           if (publicClient) {
-            await publicClient.waitForTransactionReceipt({ hash: registerTx });
+            const receipt = await publicClient.waitForTransactionReceipt({ hash: registerTx });
+            // Decode the `CardMinted` events to extract the freshly-minted tokenIds.
+            // We then ask the wallet (e.g. MetaMask) to track them via EIP-747.
+            for (const log of receipt.logs) {
+              try {
+                const decoded = decodeEventLog({
+                  abi: NFT_CARDS_ABI,
+                  data: log.data,
+                  topics: log.topics,
+                });
+                if (decoded.eventName === "CardMinted" && (decoded.args as any)?.tokenId) {
+                  mintedTokenIds.push((decoded.args as any).tokenId as bigint);
+                }
+              } catch {
+                // Unrelated log -> ignore
+              }
+            }
           }
         }
 
@@ -322,7 +287,7 @@ export default function OpenPackPage() {
   };
 
   return (
-    <div className="relative flex min-h-[calc(100vh-64px)] flex-col items-center justify-center overflow-y-auto px-6 py-12">
+    <div className="relative flex min-h-[calc(100vh-64px)] flex-col items-center justify-center overflow-y-auto px-4 py-6 sm:px-6 sm:py-12">
       <BgGradient
         gradientFrom="#ffffff"
         gradientTo="#c3b8ff"

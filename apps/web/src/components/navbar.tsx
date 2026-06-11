@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
+  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ConnectButton as WalletConnectButton } from "@/components/connect-button";
@@ -44,11 +46,14 @@ export function Navbar() {
             </SheetTrigger>
             <SheetContent side="left" className="w-80">
               <div className="flex items-center gap-2 mb-8">
-                <Trophy className="h-6 w-6 text-indigo-600" />
-                <span className="font-bold text-lg text-slate-800">
+                <Trophy className="h-6 w-6 text-indigo-600" aria-hidden="true" />
+                <SheetTitle className="font-bold text-lg text-slate-800">
                   Road App
-                </span>
+                </SheetTitle>
               </div>
+              <SheetDescription className="sr-only">
+                Menú de navegación de Road App.
+              </SheetDescription>
               <nav className="flex flex-col gap-4">
                 {navLinks.map((link) => (
                   <Link

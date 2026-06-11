@@ -15,7 +15,7 @@ export default function CardsPage() {
   const { ownedCards, hasOpenedPack } = useInventory();
 
   return (
-    <div className="relative min-h-[calc(100vh-64px)] px-4 py-16 sm:px-6">
+    <div className="relative min-h-[calc(100vh-64px)] px-4 py-6 sm:py-16 sm:px-6">
       <BgGradient
         gradientFrom="#ffffff"
         gradientTo="#c3b8ff"

@@ -76,6 +76,7 @@ export default function RootLayout({
         */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <meta name="talentapp:project_verification" content="796bb2ef87b1084ba83f13810fa1fab3a8cb70dbdc744c9bf9b9a6ee03babf48db2ebb361f06f5b8e1af2c33305dfd61caf5ab0eaa9a9d37bf5c6f54d5ee2143" />
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
