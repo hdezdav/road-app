@@ -62,9 +62,7 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     // Etherscan v2 multichain (unified API).
-    apiKey: {
-      celo: process.env.ETHERSCAN_API_KEY || "",
-    },
+    apiKey: process.env.ETHERSCAN_API_KEY || "",
     customChains: [
       {
         network: "celo",
