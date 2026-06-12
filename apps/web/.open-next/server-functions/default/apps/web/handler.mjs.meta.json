@@ -4525,7 +4525,7 @@
       "format": "cjs"
     },
     ".open-next/server-functions/default/apps/web/.next/server/chunks/8105.js": {
-      "bytes": 41244,
+      "bytes": 40437,
       "imports": [],
       "format": "cjs"
     },
@@ -5501,7 +5501,7 @@
       "format": "cjs"
     },
     ".open-next/server-functions/default/apps/web/.next/server/app/battle/page.js": {
-      "bytes": 44069,
+      "bytes": 44851,
       "imports": [
         {
           "path": "../../node_modules/.pnpm/next@16.2.9_@babel+core@7.29.7_react-dom@18.3.1_react@18.3.1/node_modules/next/dist/shared/lib/router/utils/app-paths.js",
@@ -5592,7 +5592,7 @@
       "format": "cjs"
     },
     ".open-next/server-functions/default/apps/web/.next/server/app/cards/page.js": {
-      "bytes": 31695,
+      "bytes": 32148,
       "imports": [
         {
           "path": "../../node_modules/.pnpm/next@16.2.9_@babel+core@7.29.7_react-dom@18.3.1_react@18.3.1/node_modules/next/dist/shared/lib/router/utils/app-paths.js",
@@ -5683,7 +5683,7 @@
       "format": "cjs"
     },
     ".open-next/server-functions/default/apps/web/.next/server/app/pack/page.js": {
-      "bytes": 37563,
+      "bytes": 38303,
       "imports": [
         {
           "path": "../../node_modules/.pnpm/next@16.2.9_@babel+core@7.29.7_react-dom@18.3.1_react@18.3.1/node_modules/next/dist/shared/lib/router/utils/app-paths.js",
@@ -5774,7 +5774,7 @@
       "format": "cjs"
     },
     ".open-next/server-functions/default/apps/web/.next/server/app/page.js": {
-      "bytes": 37267,
+      "bytes": 38309,
       "imports": [
         {
           "path": "../../node_modules/.pnpm/next@16.2.9_@babel+core@7.29.7_react-dom@18.3.1_react@18.3.1/node_modules/next/dist/shared/lib/router/utils/app-paths.js",
@@ -10126,7 +10126,7 @@
           "bytesInOutput": 13957
         },
         ".open-next/server-functions/default/apps/web/.next/server/chunks/8105.js": {
-          "bytesInOutput": 41506
+          "bytesInOutput": 40699
         },
         ".open-next/server-functions/default/apps/web/.next/server/chunks/8156.js": {
           "bytesInOutput": 1692
@@ -10216,16 +10216,16 @@
           "bytesInOutput": 35364
         },
         ".open-next/server-functions/default/apps/web/.next/server/app/battle/page.js": {
-          "bytesInOutput": 44294
+          "bytesInOutput": 45084
         },
         ".open-next/server-functions/default/apps/web/.next/server/app/cards/page.js": {
-          "bytesInOutput": 31744
+          "bytesInOutput": 32197
         },
         ".open-next/server-functions/default/apps/web/.next/server/app/pack/page.js": {
-          "bytesInOutput": 37681
+          "bytesInOutput": 38438
         },
         ".open-next/server-functions/default/apps/web/.next/server/app/page.js": {
-          "bytesInOutput": 37357
+          "bytesInOutput": 38399
         },
         "../../node_modules/.pnpm/next@16.2.9_@babel+core@7.29.7_react-dom@18.3.1_react@18.3.1/node_modules/next/dist/server/require.js": {
           "bytesInOutput": 3539
@@ -10564,7 +10564,7 @@
           "bytesInOutput": 60347
         }
       },
-      "bytes": 6637257
+      "bytes": 6639492
     }
   }
 }
