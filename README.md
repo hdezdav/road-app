@@ -164,3 +164,4 @@ pnpm deploy             # publishes to Cloudflare Workers
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Turborepo Documentation](https://turbo.build/repo/docs)
 - [shadcn/ui Documentation](https://ui.shadcn.com/)
+- [EIP-712 Specification](https://eips.ethereum.org/EIPS/eip-712)
