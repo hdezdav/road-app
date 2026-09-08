@@ -1,4 +1,19 @@
-# road-app
+# 🛣️ Road App
+
+<div align="center">
+
+[![Live Demo](https://img.shields.io/badge/Live_Demo-road--app.tajada.workers.dev-0052FF?style=for-the-badge&logo=cloudflare&logoColor=white)](https://road-app.tajada.workers.dev/)
+[![Celo Mainnet](https://img.shields.io/badge/Celo-Mainnet-35D07F?style=for-the-badge&logo=celo&logoColor=white)](https://celoscan.io)
+[![Next.js 14](https://img.shields.io/badge/Next.js_14-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Solidity](https://img.shields.io/badge/Solidity-363636?style=for-the-badge&logo=solidity&logoColor=white)](https://soliditylang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+
+### 🏆 2nd Place Winner at Monad Blitz Medellín Hackathon
+
+</div>
+
+---
 
 A **Blockchain Education Mini App** built for **MiniPay** on **Celo**.
 
@@ -10,6 +25,13 @@ boss battle that, when defeated, mints an on-chain NFT card as proof of learning
 Built with Next.js 14, TypeScript, Hardhat + Viem, Wagmi/RainbowKit, Tailwind and
 Turborepo. Designed to satisfy MiniPay's submission requirements (single chain,
 stablecoin-only display, no `CELO`/"crypto"/"gas" wording, fee abstraction-ready).
+
+---
+
+## 🌐 Live Demo & Deployment
+
+- **Live Mini App**: [road-app.tajada.workers.dev](https://road-app.tajada.workers.dev/)
+- **Hackathon Post (X)**: [MedellinBlock on X](https://x.com/MedellinBlock/status/2064481863033311374?s=20)
 
 ---
 
